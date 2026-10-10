@@ -78,6 +78,29 @@ class MerchantInventoryService {
     return repository.updateQuantity(merchantId, item.id, quantity);
   }
 
+  /// Atomically decrements the quantity of the item for [productId] by [amount].
+  ///
+  /// [amount] must be greater than zero. Throws
+  /// [InventoryItemNotFoundException] when the merchant does not own the
+  /// product and [InsufficientStockException] when [amount] exceeds available
+  /// quantity.
+  Future<MerchantInventoryItem> decrementQuantity(
+    MerchantId merchantId,
+    ProductId productId,
+    Quantity amount,
+  ) async {
+    if (amount.milliUnits <= 0) {
+      throw ArgumentError.value(
+        amount.milliUnits,
+        'amount',
+        'Decrement amount must be greater than zero',
+      );
+    }
+    final item = await _requireItem(merchantId, productId);
+    await repository.decrementQuantity(merchantId, item.id, amount);
+    return (await repository.getById(merchantId, item.id))!;
+  }
+
   /// Removes the item for [productId]. Returns `false` when absent.
   Future<bool> removeProduct(MerchantId merchantId, ProductId productId) async {
     final item = await repository.getByProduct(merchantId, productId);

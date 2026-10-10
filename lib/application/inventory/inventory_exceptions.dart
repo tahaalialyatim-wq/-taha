@@ -1,4 +1,5 @@
 import '../../domain/catalog/product_id.dart';
+import '../../domain/catalog/quantity.dart';
 import '../../domain/inventory/inventory_item_id.dart';
 import '../../domain/merchant/merchant_id.dart';
 
@@ -46,4 +47,25 @@ class DuplicateInventoryItemException implements Exception {
   String toString() =>
       'DuplicateInventoryItemException(merchant: ${merchantId.value}, '
       'product: ${productId.value})';
+}
+
+/// Thrown when a decrement requests more quantity than is available.
+class InsufficientStockException implements Exception {
+  const InsufficientStockException({
+    required this.merchantId,
+    required this.itemId,
+    required this.available,
+    required this.requested,
+  });
+
+  final MerchantId merchantId;
+  final InventoryItemId itemId;
+  final Quantity available;
+  final Quantity requested;
+
+  @override
+  String toString() =>
+      'InsufficientStockException(merchant: ${merchantId.value}, '
+      'item: ${itemId.value}, available: ${available.milliUnits}, '
+      'requested: ${requested.milliUnits})';
 }

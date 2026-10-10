@@ -63,5 +63,129 @@ void main() {
       await service.addProduct(merchant, product);
       expect(await service.removeProduct(merchant, product), isTrue);
     });
+
+    test('decrementQuantity deducts a valid amount', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(10));
+      final updated =
+          await service.decrementQuantity(merchant, product, Quantity.whole(3));
+      expect(updated.quantity, Quantity.whole(7));
+    });
+
+    test('decrementQuantity can reduce stock to exactly zero', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(4));
+      final updated =
+          await service.decrementQuantity(merchant, product, Quantity.whole(4));
+      expect(updated.quantity, Quantity.zero);
+    });
+
+    test('decrementQuantity greater than available throws', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(2));
+      expect(
+        () => service.decrementQuantity(merchant, product, Quantity.whole(3)),
+        throwsA(isA<InsufficientStockException>()),
+      );
+      expect(
+        (await service.findByProduct(merchant, product))!.quantity,
+        Quantity.whole(2),
+      );
+    });
+
+    test('decrementQuantity of zero is rejected', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(2));
+      expect(
+        () => service.decrementQuantity(merchant, product, Quantity.zero),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('decrementQuantity of a negative amount is rejected', () async {
+      expect(() => Quantity.fromMilliUnits(-1), throwsArgumentError);
+    });
+
+    test('decrementQuantity of a missing product throws', () async {
+      expect(
+        () => service.decrementQuantity(merchant, product, Quantity.whole(1)),
+        throwsA(isA<InventoryItemNotFoundException>()),
+      );
+    });
+
+    test('decrementQuantity for another merchant does not find the item',
+        () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(5));
+      expect(
+        () => service.decrementQuantity(
+          MerchantId('m2'),
+          product,
+          Quantity.whole(1),
+        ),
+        throwsA(isA<InventoryItemNotFoundException>()),
+      );
+      expect(
+        (await service.findByProduct(merchant, product))!.quantity,
+        Quantity.whole(5),
+      );
+    });
+
+    test('decrementQuantity preserves unrelated item fields', () async {
+      const price = Money(
+        currency: CurrencyCode.yemeniRial,
+        minorUnits: 250,
+      );
+      await service.addProduct(
+        merchant,
+        product,
+        quantity: Quantity.whole(8),
+        sellingPrice: price,
+        purchasePrice: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 180,
+        ),
+        minimumStock: Quantity.whole(2),
+      );
+      final updated =
+          await service.decrementQuantity(merchant, product, Quantity.whole(1));
+      expect(updated.sellingPrice, price);
+      expect(
+        updated.purchasePrice,
+        const Money(currency: CurrencyCode.yemeniRial, minorUnits: 180),
+      );
+      expect(updated.minimumStock, Quantity.whole(2));
+      expect(updated.merchantId, merchant);
+      expect(updated.productId, product);
+      expect(updated.quantity, Quantity.whole(7));
+    });
+
+    test('decrementQuantity does not affect another merchant', () async {
+      final other = MerchantId('m2');
+      await service.addProduct(merchant, product, quantity: Quantity.whole(6));
+      await service.addProduct(other, product, quantity: Quantity.whole(6));
+      await service.decrementQuantity(merchant, product, Quantity.whole(2));
+      expect(
+        (await service.findByProduct(merchant, product))!.quantity,
+        Quantity.whole(4),
+      );
+      expect(
+        (await service.findByProduct(other, product))!.quantity,
+        Quantity.whole(6),
+      );
+    });
+
+    test('decrementQuantity does not mutate a previously read item', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(9));
+      final before = await service.findByProduct(merchant, product);
+      final after =
+          await service.decrementQuantity(merchant, product, Quantity.whole(4));
+      expect(before!.quantity, Quantity.whole(9));
+      expect(after.quantity, Quantity.whole(5));
+      expect(identical(before, after), isFalse);
+    });
+
+    test('repeated decrementQuantity yields the remaining quantity', () async {
+      await service.addProduct(merchant, product, quantity: Quantity.whole(10));
+      await service.decrementQuantity(merchant, product, Quantity.whole(3));
+      final remaining =
+          await service.decrementQuantity(merchant, product, Quantity.whole(2));
+      expect(remaining.quantity, Quantity.whole(5));
+    });
   });
 }

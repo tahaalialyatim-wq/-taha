@@ -3,6 +3,7 @@ import '../../domain/catalog/quantity.dart';
 import '../../domain/inventory/inventory_item_id.dart';
 import '../../domain/inventory/merchant_inventory_item.dart';
 import '../../domain/merchant/merchant_id.dart';
+import 'inventory_decrement.dart';
 
 /// Merchant scoped, asynchronous inventory repository.
 ///
@@ -36,6 +37,28 @@ abstract class MerchantInventoryRepository {
     MerchantId merchantId,
     InventoryItemId id,
     Quantity quantity,
+  );
+
+  /// Atomically decrements the quantity of an item by [amount].
+  ///
+  /// [amount] must be greater than zero. Throws
+  /// [InventoryItemNotFoundException] when missing,
+  /// [MerchantMismatchException] when owned by another merchant, and
+  /// [InsufficientStockException] when [amount] exceeds available quantity.
+  Future<void> decrementQuantity(
+    MerchantId merchantId,
+    InventoryItemId inventoryItemId,
+    Quantity amount,
+  );
+
+  /// Atomically decrements quantities for every item in [decrements].
+  ///
+  /// Validates the complete batch before any write. Throws
+  /// [InventoryItemNotFoundException], [MerchantMismatchException], or
+  /// [InsufficientStockException] without mutating stock.
+  Future<void> decrementQuantities(
+    MerchantId merchantId,
+    List<InventoryDecrement> decrements,
   );
 
   /// Removes an item. Returns `false` when it does not exist for [merchantId].
