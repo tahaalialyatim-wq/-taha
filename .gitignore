@@ -2,7 +2,11 @@
 .dart_tool/
 .packages
 build/
-pubspec.lock
+/pubspec.lock
 
 # Coverage
 coverage/
+
+# CI APK copy
+*.apk
+*.aab

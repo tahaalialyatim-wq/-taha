@@ -1,0 +1,22 @@
+# Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+build/
+*.iml
+.idea/
+.vscode/
+
+# Android
+android/local.properties
+android/.gradle/
+android/captures/
+*.apk
+*.aab
+*.keystore
+key.properties
+
+# Coverage
+coverage/
