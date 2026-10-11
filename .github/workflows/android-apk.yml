@@ -21,12 +21,13 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Install SQLite for widget/unit tests
+      - name: Install native build deps
         working-directory: .
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev cmake ninja-build
       - run: flutter pub get
-      - name: Materialize Flutter Android host
+      - name: Generate a complete Android host
         run: |
+          rm -rf android
           flutter create --platforms=android --org com.awtad --project-name awtad_mobile .
           git checkout -- lib test pubspec.yaml analysis_options.yaml README.md .gitignore
           rm -f test/widget_test.dart
@@ -36,14 +37,11 @@ jobs:
           text = manifest.read_text(encoding="utf-8")
           text = text.replace('android:label="awtad_mobile"', 'android:label="الأوتاد للمبيعات"')
           if "android:supportsRtl" not in text:
-              text = text.replace(
-                  "<application",
-                  '<application android:supportsRtl="true"',
-                  1,
-              )
+              text = text.replace("<application", '<application android:supportsRtl="true"', 1)
           manifest.write_text(text, encoding="utf-8")
           PY
-      - run: chmod +x android/gradlew
+          chmod +x android/gradlew
+      - run: yes | flutter doctor --android-licenses || true
       - run: flutter test
       - run: flutter build apk --release
       - name: Copy APK to repository root
