@@ -22,7 +22,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
       - run: flutter pub get
       - name: Materialize missing Android wrapper files
-        run: flutter create --platforms=android .
+        run: |
+          flutter create --platforms=android .
+          git checkout -- .
+          test ! -e test/widget_test.dart || mv test/widget_test.dart /tmp/flutter-create-widget-test.dart
       - run: chmod +x android/gradlew
       - run: flutter test
       - run: flutter build apk --release
