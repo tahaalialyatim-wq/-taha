@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:awtad_mobile/core/database/database_init_exception.dart';
 import 'package:awtad_mobile/core/database/database_service.dart';
+import 'package:awtad_mobile/core/database/retail_session.dart';
 import 'package:awtad_mobile/core/database/sqlite_customer_repository.dart';
 import 'package:awtad_mobile/core/database/sqlite_inventory_repository.dart';
 import 'package:awtad_mobile/core/database/sqlite_ledger_repository.dart';
@@ -201,5 +202,173 @@ void main() {
       CurrencyCode.saudiRiyal,
     );
     expect(balance.balanceMinorUnits, 200);
+  });
+
+  test('opening balance is first and payment can overpay on sqlite', () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final session = RetailSession(service);
+    final merchant = RetailSession.defaultMerchant;
+    final customerId = CustomerId('c1');
+    await session.customers.add(
+      Customer(id: customerId, merchantId: merchant, name: 'عميل'),
+    );
+    await session.openingBalances.record(
+      RecordOpeningBalanceCommand(
+        entryId: CustomerAccountEntryId('ob1'),
+        merchantId: merchant,
+        customerId: customerId,
+        currency: CurrencyCode.yemeniRial,
+        amount: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 1000,
+        ),
+        occurredAt: DateTime.utc(2026, 10, 12),
+      ),
+    );
+    expect(
+      (await session.ledger.getBalance(
+        merchant,
+        customerId,
+        CurrencyCode.yemeniRial,
+      ))
+          .balanceMinorUnits,
+      1000,
+    );
+    await session.payments.record(
+      RecordCustomerPaymentCommand(
+        entryId: CustomerAccountEntryId('p1'),
+        merchantId: merchant,
+        customerId: customerId,
+        currency: CurrencyCode.yemeniRial,
+        amount: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 400,
+        ),
+        occurredAt: DateTime.utc(2026, 10, 12),
+      ),
+    );
+    expect(
+      (await session.ledger.getBalance(
+        merchant,
+        customerId,
+        CurrencyCode.yemeniRial,
+      ))
+          .balanceMinorUnits,
+      600,
+    );
+    await session.payments.record(
+      RecordCustomerPaymentCommand(
+        entryId: CustomerAccountEntryId('p2'),
+        merchantId: merchant,
+        customerId: customerId,
+        currency: CurrencyCode.yemeniRial,
+        amount: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 900,
+        ),
+        occurredAt: DateTime.utc(2026, 10, 12),
+      ),
+    );
+    final overpaid = await session.ledger.getBalance(
+      merchant,
+      customerId,
+      CurrencyCode.yemeniRial,
+    );
+    expect(overpaid.balanceMinorUnits, -300);
+    final entries = await session.ledger.getEntries(merchant, customerId);
+    expect(entries.map((e) => e.type), <CustomerAccountEntryType>[
+      CustomerAccountEntryType.openingBalance,
+      CustomerAccountEntryType.payment,
+      CustomerAccountEntryType.payment,
+    ]);
+  });
+
+  test('duplicate ledger entry id is rejected without extra sqlite rows',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final session = RetailSession(service);
+    final merchant = RetailSession.defaultMerchant;
+    final customerId = CustomerId('c1');
+    await session.customers.add(
+      Customer(id: customerId, merchantId: merchant, name: 'عميل'),
+    );
+    final command = RecordCustomerPaymentCommand(
+      entryId: CustomerAccountEntryId('dup'),
+      merchantId: merchant,
+      customerId: customerId,
+      currency: CurrencyCode.saudiRiyal,
+      amount: const Money(
+        currency: CurrencyCode.saudiRiyal,
+        minorUnits: 250,
+      ),
+      occurredAt: DateTime.utc(2026, 10, 12),
+    );
+    await session.payments.record(command);
+    await expectLater(
+      session.payments.record(command),
+      throwsA(isA<DuplicateCustomerAccountEntryException>()),
+    );
+    expect(
+      await session.ledger.getEntries(merchant, customerId),
+      hasLength(1),
+    );
+  });
+
+  test('rejected sqlite opening balance leaves prior entries unchanged',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final session = RetailSession(service);
+    final merchant = RetailSession.defaultMerchant;
+    final customerId = CustomerId('c1');
+    await session.customers.add(
+      Customer(id: customerId, merchantId: merchant, name: 'عميل'),
+    );
+    await session.payments.record(
+      RecordCustomerPaymentCommand(
+        entryId: CustomerAccountEntryId('p1'),
+        merchantId: merchant,
+        customerId: customerId,
+        currency: CurrencyCode.yemeniRial,
+        amount: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 400,
+        ),
+        occurredAt: DateTime.utc(2026, 10, 12),
+      ),
+    );
+    await expectLater(
+      session.openingBalances.record(
+        RecordOpeningBalanceCommand(
+          entryId: CustomerAccountEntryId('ob1'),
+          merchantId: merchant,
+          customerId: customerId,
+          currency: CurrencyCode.yemeniRial,
+          amount: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: 100,
+          ),
+          occurredAt: DateTime.utc(2026, 10, 12),
+        ),
+      ),
+      throwsA(isA<OpeningBalanceNotFirstException>()),
+    );
+    final entries = await session.ledger.getEntries(merchant, customerId);
+    expect(entries, hasLength(1));
+    expect(entries.single.type, CustomerAccountEntryType.payment);
+    expect(
+      (await session.ledger.getBalance(
+        merchant,
+        customerId,
+        CurrencyCode.yemeniRial,
+      ))
+          .balanceMinorUnits,
+      -400,
+    );
   });
 }

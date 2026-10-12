@@ -2,6 +2,7 @@ import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';
+import 'customer_detail_screen.dart';
 
 class DebtsScreen extends StatefulWidget {
   const DebtsScreen({super.key, required this.session});
@@ -26,19 +27,24 @@ class _DebtsScreenState extends State<DebtsScreen> {
     final customers = await widget.session.customers.getAll(merchant);
     final rows = <_DebtRow>[];
     for (final customer in customers) {
-      final balance = await widget.session.ledger.getBalance(
-        merchant,
-        customer.id,
-        CurrencyCode.saudiRiyal,
-      );
+      final balances = <CustomerAccountBalance>[];
+      for (final currency in CurrencyCode.values) {
+        balances.add(
+          await widget.session.ledger.getBalance(
+            merchant,
+            customer.id,
+            currency,
+          ),
+        );
+      }
       final entries = await widget.session.ledger.getEntries(
         merchant,
         customer.id,
       );
       rows.add(
         _DebtRow(
-          name: customer.name,
-          balance: balance.balanceMinorUnits,
+          customer: customer,
+          balances: balances,
           entries: entries.length,
         ),
       );
@@ -60,9 +66,20 @@ class _DebtsScreenState extends State<DebtsScreen> {
         for (final row in _rows)
           Card(
             child: ListTile(
-              title: Text(row.name),
-              subtitle: Text('قيود: ${row.entries}'),
-              trailing: Text('${row.balance} هللة'),
+              title: Text(row.customer.name),
+              subtitle: Text('قيود: ${row.entries}\n${row.balanceLabel}'),
+              isThreeLine: true,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CustomerDetailScreen(
+                      session: widget.session,
+                      customer: row.customer,
+                    ),
+                  ),
+                );
+                await _reload();
+              },
             ),
           ),
       ],
@@ -72,12 +89,31 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
 class _DebtRow {
   const _DebtRow({
-    required this.name,
-    required this.balance,
+    required this.customer,
+    required this.balances,
     required this.entries,
   });
 
-  final String name;
-  final int balance;
+  final Customer customer;
+  final List<CustomerAccountBalance> balances;
   final int entries;
+
+  String get balanceLabel {
+    final parts = <String>[];
+    for (final balance in balances) {
+      if (balance.balanceMinorUnits == 0) {
+        continue;
+      }
+      if (balance.balanceMinorUnits > 0) {
+        parts
+            .add('عليه ${balance.balanceMinorUnits} ${balance.currency.value}');
+      } else {
+        parts.add('له ${-balance.balanceMinorUnits} ${balance.currency.value}');
+      }
+    }
+    if (parts.isEmpty) {
+      return 'تسوية';
+    }
+    return parts.join(' · ');
+  }
 }

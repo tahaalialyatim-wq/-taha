@@ -437,6 +437,60 @@ void main() {
         ),
         isA<Exception>(),
       );
+      expect(
+        awtad.RecordOpeningBalanceService(
+          ledger: awtad.InMemoryCustomerAccountLedgerRepository(
+            customers: awtad.InMemoryCustomerRepository(),
+          ),
+        ),
+        isA<awtad.RecordOpeningBalanceService>(),
+      );
+      expect(
+        awtad.RecordOpeningBalanceService.forStore(awtad.InMemoryRetailStore()),
+        isA<awtad.RecordOpeningBalanceService>(),
+      );
+      expect(
+        awtad.RecordOpeningBalanceCommand(
+          entryId: awtad.CustomerAccountEntryId('e'),
+          merchantId: awtad.MerchantId('m'),
+          customerId: awtad.CustomerId('c'),
+          currency: awtad.CurrencyCode.yemeniRial,
+          amount: const awtad.Money(
+            currency: awtad.CurrencyCode.yemeniRial,
+            minorUnits: 100,
+          ),
+          occurredAt: DateTime.utc(2026, 1, 1),
+        ),
+        isA<awtad.RecordOpeningBalanceCommand>(),
+      );
+      expect(
+        awtad.RecordCustomerPaymentService(
+          ledger: awtad.InMemoryCustomerAccountLedgerRepository(
+            customers: awtad.InMemoryCustomerRepository(),
+          ),
+        ),
+        isA<awtad.RecordCustomerPaymentService>(),
+      );
+      expect(
+        awtad.RecordCustomerPaymentService.forStore(
+          awtad.InMemoryRetailStore(),
+        ),
+        isA<awtad.RecordCustomerPaymentService>(),
+      );
+      expect(
+        awtad.RecordCustomerPaymentCommand(
+          entryId: awtad.CustomerAccountEntryId('e'),
+          merchantId: awtad.MerchantId('m'),
+          customerId: awtad.CustomerId('c'),
+          currency: awtad.CurrencyCode.yemeniRial,
+          amount: const awtad.Money(
+            currency: awtad.CurrencyCode.yemeniRial,
+            minorUnits: 100,
+          ),
+          occurredAt: DateTime.utc(2026, 1, 1),
+        ),
+        isA<awtad.RecordCustomerPaymentCommand>(),
+      );
     });
 
     test('exposes grocery-v1 builder and source without a second catalog', () {

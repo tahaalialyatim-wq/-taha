@@ -2,6 +2,7 @@ import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';
+import 'customer_detail_screen.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key, required this.session});
@@ -87,6 +88,17 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ListTile(
             title: Text(customer.name),
             subtitle: Text(customer.phone ?? 'بدون هاتف'),
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CustomerDetailScreen(
+                    session: widget.session,
+                    customer: customer,
+                  ),
+                ),
+              );
+              await _reload();
+            },
           ),
       ],
     );

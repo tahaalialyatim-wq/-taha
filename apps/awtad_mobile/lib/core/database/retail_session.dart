@@ -24,6 +24,8 @@ class RetailSession {
       customers: customers,
       unitOfWork: SqliteCreditSaleUnitOfWork(database),
     );
+    openingBalances = RecordOpeningBalanceService(ledger: ledger);
+    payments = RecordCustomerPaymentService(ledger: ledger);
   }
 
   final DatabaseService database;
@@ -34,6 +36,8 @@ class RetailSession {
   late final MerchantInventoryService inventoryService;
   late final CompleteSaleService cashSales;
   late final CreditSaleService creditSales;
+  late final RecordOpeningBalanceService openingBalances;
+  late final RecordCustomerPaymentService payments;
 
   static final MerchantId defaultMerchant = MerchantId('merchant-1');
 
