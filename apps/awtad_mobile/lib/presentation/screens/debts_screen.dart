@@ -69,6 +69,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
               title: Text(row.customer.name),
               subtitle: Text('قيود: ${row.entries}\n${row.balanceLabel}'),
               isThreeLine: true,
+              trailing: const Icon(Icons.chevron_left),
               onTap: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute<void>(

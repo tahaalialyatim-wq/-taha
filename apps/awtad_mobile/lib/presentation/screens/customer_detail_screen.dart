@@ -128,6 +128,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canRecordOpening =
+        CurrencyCode.values.any((currency) => !_hasEntries(currency));
     return Scaffold(
       appBar: AppBar(title: Text(widget.customer.name)),
       body: ListView(
@@ -149,27 +151,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             ),
           const Divider(),
           const Text(
-            'سجل القيود',
+            'رصيد افتتاحي',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          if (_entries.isEmpty) const Text('لا توجد قيود بعد.'),
-          for (final entry in _entries)
-            ListTile(
-              title: Text(_typeLabel(entry.type)),
-              subtitle: Text(
-                '${entry.amount.minorUnits} ${entry.currency.value}'
-                '${entry.reference == null ? '' : ' · ${entry.reference}'}',
-              ),
-              trailing: Text(
-                entry.occurredAt.toUtc().toIso8601String().split('T').first,
-              ),
-            ),
-          const Divider(),
-          if (CurrencyCode.values.any((c) => !_hasEntries(c))) ...[
-            const Text(
-              'رصيد افتتاحي',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+          if (canRecordOpening) ...[
             const Text('يُسجل مرة واحدة لكل عملة إذا كان الحساب فارغاً.'),
             DropdownButton<CurrencyCode>(
               isExpanded: true,
@@ -206,8 +191,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               onPressed: _hasEntries(_openingCurrency) ? null : _recordOpening,
               child: const Text('تسجيل الرصيد الافتتاحي'),
             ),
-            const Divider(),
-          ],
+          ] else
+            const Text('لكل عملة قيود مسجلة، فلا يمكن إضافة رصيد افتتاحي.'),
+          const Divider(),
           const Text(
             'تسجيل دفعة',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -241,21 +227,43 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             onPressed: _recordPayment,
             child: const Text('تسجيل دفعة'),
           ),
-          if (_message != null) Text(_message!),
+          if (_message != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_message!),
+            ),
+          const Divider(),
+          const Text(
+            'سجل القيود',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          if (_entries.isEmpty) const Text('لا توجد قيود بعد.'),
+          for (final entry in _entries)
+            ListTile(
+              title: Text(_typeLabel(entry.type)),
+              subtitle: Text(
+                '${entry.amount.minorUnits} ${entry.currency.value}'
+                '${entry.reference == null ? '' : ' · ${entry.reference}'}',
+              ),
+              trailing: Text(
+                entry.occurredAt.toUtc().toIso8601String().split('T').first,
+              ),
+            ),
         ],
       ),
     );
   }
 
   String _balanceLabel(CustomerAccountBalance balance) {
-    final amount = '${balance.balanceMinorUnits} ${balance.currency.value}';
+    final magnitude =
+        '${balance.balanceMinorUnits.abs()} ${balance.currency.value}';
     if (balance.balanceMinorUnits > 0) {
-      return 'عليه $amount';
+      return 'عليه $magnitude';
     }
     if (balance.balanceMinorUnits < 0) {
-      return 'له $amount';
+      return 'له $magnitude';
     }
-    return 'تسوية $amount';
+    return 'تسوية $magnitude';
   }
 
   String _typeLabel(CustomerAccountEntryType type) {
