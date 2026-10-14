@@ -61,6 +61,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> reveal(WidgetTester tester, Finder finder) async {
+    await tester.scrollUntilVisible(
+      finder,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+  }
+
   Future<void> recordOpening(CurrencyCode currency, int minorUnits) async {
     await session.openingBalances.record(
       RecordOpeningBalanceCommand(
@@ -77,6 +86,7 @@ void main() {
   testWidgets('opening balance and payment actions are visible for a customer',
       (tester) async {
     await pumpDetail(tester);
+    await reveal(tester, paymentButton());
     expect(openingButton(), findsOneWidget);
     expect(paymentButton(), findsOneWidget);
   });
@@ -84,10 +94,13 @@ void main() {
   testWidgets('recording an opening balance updates and persists the balance',
       (tester) async {
     await pumpDetail(tester);
+    await reveal(tester, openingField());
     await tester.enterText(openingField(), '1000');
+    await reveal(tester, openingButton());
     await tester.tap(openingButton());
     await tester.pumpAndSettle();
 
+    await reveal(tester, find.text('عليه 1000 YER'));
     expect(find.text('عليه 1000 YER'), findsOneWidget);
     expect(find.text('تم تسجيل الرصيد الافتتاحي.'), findsOneWidget);
 
@@ -112,23 +125,31 @@ void main() {
       (tester) async {
     await recordOpening(CurrencyCode.yemeniRial, 400);
     await pumpDetail(tester);
+    await reveal(tester, paymentField());
     await tester.enterText(paymentField(), '500');
+    await reveal(tester, paymentButton());
     await tester.tap(paymentButton());
     await tester.pumpAndSettle();
 
+    await reveal(tester, find.text('له 100 YER'));
     expect(find.text('له 100 YER'), findsOneWidget);
     expect(find.textContaining('له -'), findsNothing);
   });
 
   testWidgets('opening balances are independent per currency', (tester) async {
     await pumpDetail(tester);
+    await reveal(tester, openingField());
     await tester.enterText(openingField(), '1000');
+    await reveal(tester, openingButton());
     await tester.tap(openingButton());
     await tester.pumpAndSettle();
+    await reveal(tester, openingField());
     await tester.enterText(openingField(), '200');
+    await reveal(tester, openingButton());
     await tester.tap(openingButton());
     await tester.pumpAndSettle();
 
+    await reveal(tester, find.text('عليه 1000 YER'));
     expect(find.text('عليه 1000 YER'), findsOneWidget);
     expect(find.text('عليه 200 SAR'), findsOneWidget);
   });
@@ -153,8 +174,12 @@ void main() {
     }
     await pumpDetail(tester);
 
-    expect(paymentButton(), findsOneWidget);
     expect(openingButton(), findsOneWidget);
+    expect(paymentButton(), findsOneWidget);
+
+    await reveal(tester, find.text('سجل القيود'));
+    expect(find.text('سجل القيود'), findsOneWidget);
+    expect(find.text('دفعة'), findsWidgets);
   });
 
   testWidgets('opening action explains when every currency already has entries',
@@ -188,6 +213,7 @@ void main() {
     await tester.tap(find.text(customerName));
     await tester.pumpAndSettle();
 
+    await reveal(tester, paymentButton());
     expect(openingButton(), findsOneWidget);
     expect(paymentButton(), findsOneWidget);
   });

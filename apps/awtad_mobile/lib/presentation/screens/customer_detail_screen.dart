@@ -24,7 +24,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   CurrencyCode _paymentCurrency = CurrencyCode.yemeniRial;
   List<CustomerAccountEntry> _entries = const <CustomerAccountEntry>[];
   List<CustomerAccountBalance> _balances = const <CustomerAccountBalance>[];
-  String? _message;
+  String? _openingMessage;
+  String? _paymentMessage;
 
   MerchantId get _merchant => RetailSession.defaultMerchant;
 
@@ -79,7 +80,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Future<void> _recordOpening() async {
     final minor = int.tryParse(_openingAmount.text.trim());
     if (minor == null || minor <= 0) {
-      setState(() => _message = 'أدخل مبلغاً صحيحاً أكبر من صفر.');
+      setState(() => _openingMessage = 'أدخل مبلغاً صحيحاً أكبر من صفر.');
       return;
     }
     try {
@@ -94,17 +95,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         ),
       );
       _openingAmount.clear();
-      setState(() => _message = 'تم تسجيل الرصيد الافتتاحي.');
+      setState(() => _openingMessage = 'تم تسجيل الرصيد الافتتاحي.');
       await _reload();
     } catch (error) {
-      setState(() => _message = error.toString());
+      setState(() => _openingMessage = error.toString());
     }
   }
 
   Future<void> _recordPayment() async {
     final minor = int.tryParse(_paymentAmount.text.trim());
     if (minor == null || minor <= 0) {
-      setState(() => _message = 'أدخل مبلغ دفعة صحيحاً أكبر من صفر.');
+      setState(() => _paymentMessage = 'أدخل مبلغ دفعة صحيحاً أكبر من صفر.');
       return;
     }
     try {
@@ -119,10 +120,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         ),
       );
       _paymentAmount.clear();
-      setState(() => _message = 'تم تسجيل الدفعة.');
+      setState(() => _paymentMessage = 'تم تسجيل الدفعة.');
       await _reload();
     } catch (error) {
-      setState(() => _message = error.toString());
+      setState(() => _paymentMessage = error.toString());
     }
   }
 
@@ -140,16 +141,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'الأرصدة',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          for (final balance in _balances)
-            ListTile(
-              title: Text(_balanceLabel(balance)),
-              subtitle: Text(balance.currency.value),
-            ),
-          const Divider(),
           const Text(
             'رصيد افتتاحي',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -193,6 +184,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             ),
           ] else
             const Text('لكل عملة قيود مسجلة، فلا يمكن إضافة رصيد افتتاحي.'),
+          if (_openingMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_openingMessage!),
+            ),
           const Divider(),
           const Text(
             'تسجيل دفعة',
@@ -227,10 +223,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             onPressed: _recordPayment,
             child: const Text('تسجيل دفعة'),
           ),
-          if (_message != null)
+          if (_paymentMessage != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text(_message!),
+              child: Text(_paymentMessage!),
+            ),
+          const Divider(),
+          const Text(
+            'الأرصدة',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          for (final balance in _balances)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(_balanceLabel(balance)),
             ),
           const Divider(),
           const Text(
