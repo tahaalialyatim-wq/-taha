@@ -63,8 +63,8 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          SwitchListTile(
-            title: const Text('اتجاه النص من اليمين إلى اليسار (RTL)'),
+          const SwitchListTile(
+            title: Text('اتجاه النص من اليمين إلى اليسار (RTL)'),
             value: true,
             onChanged: null,
           ),
