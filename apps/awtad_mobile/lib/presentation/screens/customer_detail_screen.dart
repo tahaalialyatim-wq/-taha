@@ -21,7 +21,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   final _openingAmount = TextEditingController();
   final _paymentAmount = TextEditingController();
   CurrencyCode _openingCurrency = CurrencyCode.yemeniRial;
-  CurrencyCode _paymentCurrency = CurrencyCode.yemeniRial;
+  CurrencyCode? _paymentCurrency;
+  bool _paymentCurrencyChosen = false;
   List<CustomerAccountEntry> _entries = const <CustomerAccountEntry>[];
   List<CustomerAccountBalance> _balances = const <CustomerAccountBalance>[];
   String? _openingMessage;
@@ -57,6 +58,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         ),
       );
     }
+    final savedDefault = await widget.session.settings.readDefaultCurrency(
+      _merchant,
+    );
+    if (!mounted) {
+      return;
+    }
     CurrencyCode openingCurrency = _openingCurrency;
     for (final currency in CurrencyCode.values) {
       if (!entries.any((entry) => entry.currency == currency)) {
@@ -68,7 +75,40 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       _entries = entries;
       _balances = balances;
       _openingCurrency = openingCurrency;
+      if (!_paymentCurrencyChosen) {
+        _paymentCurrency = _derivePaymentCurrency(balances, savedDefault);
+      }
     });
+  }
+
+  /// Currencies with a positive outstanding balance for this customer.
+  List<CurrencyCode> get _outstandingCurrencies {
+    return _balances
+        .where((balance) => balance.balanceMinorUnits > 0)
+        .map((balance) => balance.currency)
+        .toList(growable: false);
+  }
+
+  /// Payment currency derived from outstanding debt, then the stored default.
+  ///
+  /// A single outstanding currency is preselected. Multiple outstanding
+  /// currencies return `null` so the user must choose explicitly. With no
+  /// outstanding debt the persisted store default pre-fills the selection.
+  CurrencyCode? _derivePaymentCurrency(
+    List<CustomerAccountBalance> balances,
+    CurrencyCode? savedDefault,
+  ) {
+    final positive = balances
+        .where((balance) => balance.balanceMinorUnits > 0)
+        .map((balance) => balance.currency)
+        .toList(growable: false);
+    if (positive.length == 1) {
+      return positive.single;
+    }
+    if (positive.length > 1) {
+      return null;
+    }
+    return savedDefault;
   }
 
   bool _hasEntries(CurrencyCode currency) {
@@ -108,18 +148,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       setState(() => _paymentMessage = 'أدخل مبلغ دفعة صحيحاً أكبر من صفر.');
       return;
     }
+    final currency = _paymentCurrency;
+    if (currency == null) {
+      setState(() => _paymentMessage = 'اختر عملة الدفعة قبل الحفظ.');
+      return;
+    }
     try {
       await widget.session.payments.record(
         RecordCustomerPaymentCommand(
           entryId: CustomerAccountEntryId(_newEntryId()),
           merchantId: _merchant,
           customerId: widget.customer.id,
-          currency: _paymentCurrency,
-          amount: Money(currency: _paymentCurrency, minorUnits: minor),
+          currency: currency,
+          amount: Money(currency: currency, minorUnits: minor),
           occurredAt: DateTime.now().toUtc(),
         ),
       );
       _paymentAmount.clear();
+      _paymentCurrencyChosen = false;
       setState(() => _paymentMessage = 'تم تسجيل الدفعة.');
       await _reload();
     } catch (error) {
@@ -194,12 +240,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             'تسجيل دفعة',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
+          if (_outstandingCurrencies.length > 1 && _paymentCurrency == null)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('لدى العميل أرصدة بعدة عملات. اختر عملة الدفعة.'),
+            ),
           DropdownButton<CurrencyCode>(
+            key: const Key('payment-currency-dropdown'),
             isExpanded: true,
+            hint: const Text('اختر عملة الدفعة'),
             value: _paymentCurrency,
             items: [
               for (final currency in CurrencyCode.values)
                 DropdownMenuItem(
+                  key: Key('payment-currency-${currency.value}'),
                   value: currency,
                   child: Text(currency.value),
                 ),
@@ -208,14 +262,19 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               if (value == null) {
                 return;
               }
-              setState(() => _paymentCurrency = value);
+              setState(() {
+                _paymentCurrency = value;
+                _paymentCurrencyChosen = true;
+              });
             },
           ),
           TextField(
             controller: _paymentAmount,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'مبلغ الدفعة (وحدات صغرى)',
+              helperText:
+                  _paymentCurrency == null ? null : _paymentCurrency!.value,
             ),
           ),
           const SizedBox(height: 8),
