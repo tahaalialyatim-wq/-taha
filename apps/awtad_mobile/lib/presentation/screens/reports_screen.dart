@@ -1,4 +1,3 @@
-import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';

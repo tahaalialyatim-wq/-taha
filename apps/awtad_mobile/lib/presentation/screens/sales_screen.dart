@@ -13,12 +13,32 @@ class SalesScreen extends StatefulWidget {
   State<SalesScreen> createState() => _SalesScreenState();
 }
 
+/// Result of inspecting the cart's priced items.
+class _CartCurrency {
+  const _CartCurrency({
+    required this.currency,
+    required this.mixed,
+    required this.totalMinorUnits,
+  });
+
+  /// The unanimous currency of priced items, or `null` when none/ambiguous.
+  final CurrencyCode? currency;
+
+  /// Whether priced items use more than one currency.
+  final bool mixed;
+
+  /// Integer minor-unit total of priced items.
+  final int totalMinorUnits;
+}
+
 class _SalesScreenState extends State<SalesScreen> {
   final _search = TextEditingController();
   final Map<String, int> _cart = <String, int>{};
   List<MerchantInventoryItem> _items = const <MerchantInventoryItem>[];
   List<Customer> _customers = const <Customer>[];
   CustomerId? _creditCustomer;
+  CurrencyCode? _selectedCurrency;
+  bool _userSelectedCurrency = false;
   bool _loading = true;
   String? _message;
 
@@ -38,9 +58,15 @@ class _SalesScreenState extends State<SalesScreen> {
     final merchant = RetailSession.defaultMerchant;
     final items = await widget.session.inventory.getAll(merchant);
     final customers = await widget.session.customers.getAll(merchant);
+    final savedDefault =
+        await widget.session.settings.readDefaultCurrency(merchant);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _items = items;
       _customers = customers;
+      _selectedCurrency ??= savedDefault;
       _loading = false;
     });
   }
@@ -55,12 +81,75 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
+  MerchantInventoryItem? _itemByProduct(String productId) {
+    for (final item in _items) {
+      if (item.productId.value == productId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  _CartCurrency _cartCurrency() {
+    final codes = <CurrencyCode>{};
+    var total = 0;
+    for (final entry in _cart.entries) {
+      final price = _itemByProduct(entry.key)?.sellingPrice;
+      if (price == null) {
+        continue;
+      }
+      codes.add(price.currency);
+      total += price.minorUnits * entry.value;
+    }
+    return _CartCurrency(
+      currency: codes.length == 1 ? codes.first : null,
+      mixed: codes.length > 1,
+      totalMinorUnits: total,
+    );
+  }
+
+  /// Intrinsic cart currency when unanimous, otherwise the explicit selection.
+  CurrencyCode? get _effectiveCurrency {
+    final cart = _cartCurrency();
+    return cart.currency ?? _selectedCurrency;
+  }
+
   Future<void> _complete({required bool credit}) async {
     if (_cart.isEmpty) {
       setState(() => _message = 'أضف منتجاً إلى سلة البيع.');
       return;
     }
     final merchant = RetailSession.defaultMerchant;
+    final cart = _cartCurrency();
+    if (cart.mixed) {
+      setState(
+        () => _message = 'لا يمكن خلط عملات مختلفة في فاتورة واحدة.',
+      );
+      return;
+    }
+    final intrinsic = cart.currency;
+    final selected = _selectedCurrency;
+    final CurrencyCode currency;
+    if (intrinsic != null) {
+      if (_userSelectedCurrency && selected != null && selected != intrinsic) {
+        setState(
+          () => _message =
+              'عملة الفاتورة يجب أن تطابق عملة أسعار المنتجات (${intrinsic.value}).',
+        );
+        return;
+      }
+      currency = intrinsic;
+    } else if (selected != null) {
+      currency = selected;
+    } else {
+      setState(() => _message = 'اختر عملة الفاتورة قبل الحفظ.');
+      return;
+    }
+    if (credit && _creditCustomer == null) {
+      setState(() => _message = 'اختر عميلاً للبيع الآجل.');
+      return;
+    }
+
     final lines = <SaleCommandLine>[];
     for (final entry in _cart.entries) {
       lines.add(
@@ -72,20 +161,15 @@ class _SalesScreenState extends State<SalesScreen> {
     }
     try {
       if (credit) {
-        final customerId = _creditCustomer;
-        if (customerId == null) {
-          setState(() => _message = 'اختر عميلاً للبيع الآجل.');
-          return;
-        }
         await widget.session.creditSales.complete(
           CreditSaleCommand(
             saleId: SaleId('sale-${DateTime.now().microsecondsSinceEpoch}'),
             merchantId: merchant,
-            customerId: customerId,
+            customerId: _creditCustomer!,
             ledgerEntryId: CustomerAccountEntryId(
               'e-${DateTime.now().microsecondsSinceEpoch}',
             ),
-            currency: CurrencyCode.saudiRiyal,
+            currency: currency,
             occurredAt: DateTime.now().toUtc(),
             lines: lines,
           ),
@@ -95,7 +179,7 @@ class _SalesScreenState extends State<SalesScreen> {
           CompleteSaleCommand(
             saleId: SaleId('sale-${DateTime.now().microsecondsSinceEpoch}'),
             merchantId: merchant,
-            currency: CurrencyCode.saudiRiyal,
+            currency: currency,
             lines: lines,
           ),
         );
@@ -108,11 +192,21 @@ class _SalesScreenState extends State<SalesScreen> {
     }
   }
 
+  String _priceLabel(MerchantInventoryItem item) {
+    final price = item.sellingPrice;
+    if (price == null) {
+      return 'بلا سعر';
+    }
+    return '${price.minorUnits} ${price.currency.value}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+    final cart = _cartCurrency();
+    final effective = _effectiveCurrency;
     return Column(
       children: [
         Padding(
@@ -127,6 +221,32 @@ class _SalesScreenState extends State<SalesScreen> {
             onChanged: (_) => setState(() {}),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              const Text('عملة الفاتورة: '),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final code in CurrencyCode.values)
+                      ChoiceChip(
+                        key: Key('sale-currency-${code.value}'),
+                        label: Text(code.value),
+                        selected: effective == code,
+                        onSelected: (_) => setState(() {
+                          _selectedCurrency = code;
+                          _userSelectedCurrency = true;
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         if (_message != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -139,7 +259,7 @@ class _SalesScreenState extends State<SalesScreen> {
                 ListTile(
                   title: Text(item.productId.value),
                   subtitle: Text(
-                    'المخزون: ${item.quantity.wholeUnits} · السعر: ${item.sellingPrice?.minorUnits ?? 0}',
+                    'المخزون: ${item.quantity.wholeUnits} · السعر: ${_priceLabel(item)}',
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.add_shopping_cart),
@@ -173,6 +293,16 @@ class _SalesScreenState extends State<SalesScreen> {
               onChanged: (value) => setState(() => _creditCustomer = value),
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'الإجمالي: ${effective == null ? '—' : '${cart.totalMinorUnits} ${effective.value}'}',
+              key: const Key('sale-total'),
+            ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
