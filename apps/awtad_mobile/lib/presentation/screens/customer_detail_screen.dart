@@ -273,8 +273,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               labelText: 'مبلغ الدفعة (وحدات صغرى)',
-              helperText:
-                  _paymentCurrency == null ? null : _paymentCurrency!.value,
+              helperText: _paymentCurrency?.value,
             ),
           ),
           const SizedBox(height: 8),
