@@ -83,14 +83,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
   }
 
-  Money? _priceFrom(TextEditingController controller, CurrencyCode? currency) {
-    final text = controller.text.trim();
-    if (text.isEmpty) {
-      return null;
-    }
-    return Money(currency: currency!, minorUnits: int.parse(text));
-  }
-
   Future<void> _add() async {
     final id = _product.text.trim();
     final qtyText = _qty.text.trim();
@@ -105,21 +97,42 @@ class _InventoryScreenState extends State<InventoryScreen> {
       setState(() => _message = 'أدخل كمية صحيحة.');
       return;
     }
-    final needsSelling = _sellingPrice.text.trim().isNotEmpty;
-    final needsPurchase = _purchasePrice.text.trim().isNotEmpty;
-    if (needsSelling && _sellingCurrency == null) {
+    final sellingText = _sellingPrice.text.trim();
+    final purchaseText = _purchasePrice.text.trim();
+    final sellingMinor = sellingText.isEmpty ? null : int.tryParse(sellingText);
+    final purchaseMinor =
+        purchaseText.isEmpty ? null : int.tryParse(purchaseText);
+    if (sellingText.isNotEmpty && sellingMinor == null) {
+      setState(() => _message = 'أدخل سعر بيع صحيحاً.');
+      return;
+    }
+    if (purchaseText.isNotEmpty && purchaseMinor == null) {
+      setState(() => _message = 'أدخل سعر شراء صحيحاً.');
+      return;
+    }
+    if (sellingMinor != null && sellingMinor < 0) {
+      setState(() => _message = 'لا يُسمح بسعر بيع سالب.');
+      return;
+    }
+    if (purchaseMinor != null && purchaseMinor < 0) {
+      setState(() => _message = 'لا يُسمح بسعر شراء سالب.');
+      return;
+    }
+    if (sellingMinor != null && _sellingCurrency == null) {
       setState(() => _message = 'اختر عملة سعر البيع قبل الحفظ.');
       return;
     }
-    if (needsPurchase && _purchaseCurrency == null) {
+    if (purchaseMinor != null && _purchaseCurrency == null) {
       setState(() => _message = 'اختر عملة سعر الشراء قبل الحفظ.');
       return;
     }
     try {
-      final selling =
-          needsSelling ? _priceFrom(_sellingPrice, _sellingCurrency) : null;
-      final purchase =
-          needsPurchase ? _priceFrom(_purchasePrice, _purchaseCurrency) : null;
+      final selling = sellingMinor == null
+          ? null
+          : Money(currency: _sellingCurrency!, minorUnits: sellingMinor);
+      final purchase = purchaseMinor == null
+          ? null
+          : Money(currency: _purchaseCurrency!, minorUnits: purchaseMinor);
       final editing = _editing;
       if (editing == null) {
         await widget.session.inventoryService.addProduct(

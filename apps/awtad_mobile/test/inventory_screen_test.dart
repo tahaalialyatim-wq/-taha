@@ -179,6 +179,34 @@ void main() {
     expect(find.textContaining('هللات'), findsNothing);
   });
 
+  testWidgets('negative prices are rejected before saving', (tester) async {
+    await pumpScreen(tester);
+
+    await addProduct(tester, productId: 'negative-selling', selling: '-5');
+    expect(find.text('لا يُسمح بسعر بيع سالب.'), findsOneWidget);
+    expect(
+      await session.inventoryService.findByProduct(
+        merchant,
+        ProductId('negative-selling'),
+      ),
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('selling-price-field')),
+      '',
+    );
+    await addProduct(tester, productId: 'negative-purchase', purchase: '-1');
+    expect(find.text('لا يُسمح بسعر شراء سالب.'), findsOneWidget);
+    expect(
+      await session.inventoryService.findByProduct(
+        merchant,
+        ProductId('negative-purchase'),
+      ),
+      isNull,
+    );
+  });
+
   testWidgets('existing inventory behavior adds and lists an item',
       (tester) async {
     await session.settings.saveDefaultCurrency(

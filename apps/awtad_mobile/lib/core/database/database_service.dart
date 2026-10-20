@@ -11,7 +11,7 @@ class DatabaseService {
     SqliteOpener? opener,
   }) : _opener = opener ?? sqlite3.open;
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
   static const String fileName = 'awtad_retail.sqlite';
 
   final String databasePath;
@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS schema_info (
       }
       if (current < 2) {
         _createV2(db);
+      }
+      if (current < 3) {
+        _createV3(db);
       }
       if (current == 0) {
         db.execute('INSERT INTO schema_info (version) VALUES (?);', [
@@ -167,5 +170,27 @@ CREATE TABLE IF NOT EXISTS store_settings (
   default_currency TEXT
 );
 ''');
+  }
+
+  /// Adds nullable historical purchase-cost snapshot columns to sale lines.
+  ///
+  /// Existing rows keep unknown costs (`NULL`). Nothing is backfilled or
+  /// inferred from current inventory.
+  static void _createV3(Database db) {
+    if (!_hasColumn(db, 'sale_lines', 'unit_cost_currency')) {
+      db.execute('ALTER TABLE sale_lines ADD COLUMN unit_cost_currency TEXT;');
+    }
+    if (!_hasColumn(db, 'sale_lines', 'unit_cost_minor')) {
+      db.execute('ALTER TABLE sale_lines ADD COLUMN unit_cost_minor INTEGER;');
+    }
+  }
+
+  static bool _hasColumn(Database db, String table, String column) {
+    for (final row in db.select('PRAGMA table_info($table);')) {
+      if (row['name'] == column) {
+        return true;
+      }
+    }
+    return false;
   }
 }

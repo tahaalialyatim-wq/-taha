@@ -83,6 +83,7 @@ class CompleteSaleService {
           productId: line.productId,
           quantity: line.quantity,
           unitSellingPrice: resolved,
+          unitPurchaseCost: item.purchasePrice,
         ),
       );
       decrements.add(

@@ -109,6 +109,24 @@ CREATE TABLE ledger_entries (
   }
 }
 
+/// Writes a schema-v2 database file (v1 tables plus `store_settings`) so the
+/// v2 -> v3 migration can be exercised without cost columns.
+void seedLegacyV2Database(String path) {
+  seedLegacyV1Database(path);
+  final db = sqlite3.open(path);
+  try {
+    db.execute('''
+CREATE TABLE store_settings (
+  merchant_id TEXT NOT NULL PRIMARY KEY,
+  default_currency TEXT
+);
+''');
+    db.execute('UPDATE schema_info SET version = 2;');
+  } finally {
+    db.dispose();
+  }
+}
+
 void main() {
   late Directory dir;
   late String path;
@@ -124,7 +142,7 @@ void main() {
     }
   });
 
-  test('initialize is idempotent and uses schema v2', () async {
+  test('initialize is idempotent and uses schema v3', () async {
     final service = DatabaseService(databasePath: path);
     await service.initialize();
     await service.initialize();
@@ -132,11 +150,11 @@ void main() {
       'SELECT version FROM schema_info;',
     );
     expect(version.first['version'], DatabaseService.schemaVersion);
-    expect(DatabaseService.schemaVersion, 2);
+    expect(DatabaseService.schemaVersion, 3);
     service.close();
   });
 
-  test('fresh database initializes at schema v2 with store_settings', () async {
+  test('fresh database initializes at schema v3 with cost columns', () async {
     final service = DatabaseService(databasePath: path);
     await service.initialize();
     addTearDown(service.close);
@@ -144,8 +162,14 @@ void main() {
       service.database
           .select('SELECT version FROM schema_info;')
           .first['version'],
-      2,
+      3,
     );
+    final costColumns = service.database.select(
+      'PRAGMA table_info(sale_lines);',
+    );
+    final names = costColumns.map((row) => row['name']).toSet();
+    expect(names, contains('unit_cost_currency'));
+    expect(names, contains('unit_cost_minor'));
     final tables = service.database.select(
       "SELECT name FROM sqlite_master WHERE type = 'table' "
       "AND name = 'store_settings';",
@@ -162,7 +186,7 @@ void main() {
     );
   });
 
-  test('v1 database migrates to v2 preserving rows and currencies', () async {
+  test('v1 database migrates to v3 preserving rows and currencies', () async {
     seedLegacyV1Database(path);
     final service = DatabaseService(databasePath: path);
     await service.initialize();
@@ -171,7 +195,7 @@ void main() {
       service.database
           .select('SELECT version FROM schema_info;')
           .first['version'],
-      2,
+      3,
     );
 
     final inventory = service.database.select('SELECT * FROM inventory_items;');
@@ -195,11 +219,62 @@ void main() {
     expect(lines.length, 1);
     expect(lines.first['unit_currency'], 'SAR');
     expect(lines.first['unit_minor'], 900);
+    expect(lines.first['unit_cost_currency'], isNull);
+    expect(lines.first['unit_cost_minor'], isNull);
+
+    final legacySale = await SqliteSaleRepository(service)
+        .getById(MerchantId('m1'), SaleId('s1'));
+    expect(legacySale, isNotNull);
+    expect(legacySale!.lines.single.unitPurchaseCost, isNull);
+    expect(legacySale.lines.single.grossProfit, isNull);
 
     final ledger = service.database.select('SELECT * FROM ledger_entries;');
     expect(ledger.length, 1);
     expect(ledger.first['currency'], 'USD');
     expect(ledger.first['amount_minor'], 500);
+  });
+
+  test('v2 database migrates to v3 without rewriting existing rows', () async {
+    seedLegacyV2Database(path);
+    final raw = sqlite3.open(path);
+    try {
+      raw.execute(
+        'INSERT INTO store_settings (merchant_id, default_currency) '
+        "VALUES ('m1', 'YER');",
+      );
+    } finally {
+      raw.dispose();
+    }
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    expect(
+      service.database
+          .select('SELECT version FROM schema_info;')
+          .first['version'],
+      3,
+    );
+
+    final settings = service.database.select('SELECT * FROM store_settings;');
+    expect(settings, hasLength(1));
+    expect(settings.first['default_currency'], 'YER');
+
+    final inventory = service.database.select('SELECT * FROM inventory_items;');
+    expect(inventory.length, 1);
+    expect(inventory.first['selling_currency'], 'YER');
+    expect(inventory.first['purchase_currency'], 'SAR');
+
+    final lines = service.database.select('SELECT * FROM sale_lines;');
+    expect(lines.length, 1);
+    expect(lines.first['unit_currency'], 'SAR');
+    expect(lines.first['unit_minor'], 900);
+    expect(lines.first['unit_cost_currency'], isNull);
+    expect(lines.first['unit_cost_minor'], isNull);
+
+    final legacySale = await SqliteSaleRepository(service)
+        .getById(MerchantId('m1'), SaleId('s1'));
+    expect(legacySale!.lines.single.unitPurchaseCost, isNull);
+    expect(legacySale.lines.single.grossProfit, isNull);
   });
 
   test('store settings save, read, and persist across reopen', () async {
@@ -299,6 +374,10 @@ void main() {
             .length,
         0,
       );
+      final rolledBackColumns = check.select('PRAGMA table_info(sale_lines);');
+      final names = rolledBackColumns.map((row) => row['name']).toSet();
+      expect(names, isNot(contains('unit_cost_currency')));
+      expect(names, isNot(contains('unit_cost_minor')));
     } finally {
       check.dispose();
     }
@@ -369,6 +448,76 @@ void main() {
     expect(sale, isNotNull);
     expect(sale!.customerId, isNull);
     expect(sale.total.minorUnits, 200);
+  });
+
+  test('sale line cost snapshots survive persistence and inventory edits',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final inventory = SqliteInventoryRepository(service);
+    final inventoryService = MerchantInventoryService(inventory);
+    final merchant = MerchantId('m1');
+    const cost = Money(
+      currency: CurrencyCode.saudiRiyal,
+      minorUnits: 60,
+    );
+    const selling = Money(
+      currency: CurrencyCode.saudiRiyal,
+      minorUnits: 100,
+    );
+    await inventoryService.addProduct(
+      merchant,
+      ProductId('p1'),
+      quantity: Quantity.whole(5),
+      sellingPrice: selling,
+      purchasePrice: cost,
+    );
+    final cash = CompleteSaleService(
+      inventory: inventory,
+      unitOfWork: SqliteCompleteSaleUnitOfWork(service),
+    );
+    await cash.complete(
+      CompleteSaleCommand(
+        saleId: SaleId('s1'),
+        merchantId: merchant,
+        currency: CurrencyCode.saudiRiyal,
+        lines: <SaleCommandLine>[
+          SaleCommandLine(
+            productId: ProductId('p1'),
+            quantity: Quantity.whole(2),
+          ),
+        ],
+      ),
+    );
+
+    final sales = SqliteSaleRepository(service);
+    var sale = await sales.getById(merchant, SaleId('s1'));
+    expect(sale!.lines.single.unitPurchaseCost, cost);
+    expect(sale.lines.single.grossProfit!.minorUnits, 80);
+
+    final raw = service.database.select(
+      'SELECT unit_cost_currency, unit_cost_minor FROM sale_lines;',
+    );
+    expect(raw.first['unit_cost_currency'], 'SAR');
+    expect(raw.first['unit_cost_minor'], 60);
+
+    final item = await inventoryService.findByProduct(
+      merchant,
+      ProductId('p1'),
+    );
+    await inventory.update(
+      item!.copyWith(
+        purchasePrice: const Money(
+          currency: CurrencyCode.saudiRiyal,
+          minorUnits: 90,
+        ),
+      ),
+    );
+
+    sale = await sales.getById(merchant, SaleId('s1'));
+    expect(sale!.lines.single.unitPurchaseCost, cost);
+    expect(sale.lines.single.grossProfit!.minorUnits, 80);
   });
 
   test('failed cash sale rolls back stock and sale together', () async {
