@@ -394,6 +394,7 @@ class _StoreInventoryView implements MerchantInventoryRepository {
 
   @override
   Future<MerchantInventoryItem> update(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     _store._publish((current) {
       final existing = current.inventoryById[item.id.value];
       if (existing == null) {

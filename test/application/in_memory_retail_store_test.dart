@@ -498,4 +498,72 @@ void main() {
       );
     });
   });
+
+  group('InMemoryRetailStore.inventory.update', () {
+    test('rejects a negative selling price', () async {
+      await addStock(p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      expect(
+        () => store.inventory.update(
+          existing.copyWith(
+            sellingPrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -1,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await stock.findByProduct(merchant, p1))!.sellingPrice,
+        yer100,
+      );
+    });
+
+    test('rejects a negative purchase price', () async {
+      await addStock(p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      expect(
+        () => store.inventory.update(
+          existing.copyWith(
+            purchasePrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -5,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await stock.findByProduct(merchant, p1))!.purchasePrice,
+        isNull,
+      );
+    });
+
+    test('accepts zero and omitted prices', () async {
+      await stock.addProduct(merchant, p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      final zeroSelling = await store.inventory.update(
+        existing.copyWith(
+          sellingPrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: 0,
+          ),
+        ),
+      );
+      expect(zeroSelling.sellingPrice!.minorUnits, 0);
+      expect(zeroSelling.purchasePrice, isNull);
+
+      final omitted = await store.inventory.update(
+        MerchantInventoryItem(
+          id: existing.id,
+          merchantId: existing.merchantId,
+          productId: existing.productId,
+          quantity: existing.quantity,
+        ),
+      );
+      expect(omitted.sellingPrice, isNull);
+      expect(omitted.purchasePrice, isNull);
+    });
+  });
 }

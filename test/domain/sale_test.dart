@@ -144,6 +144,29 @@ void main() {
       expect(line.grossProfit!.minorUnits, 150);
     });
 
+    test(
+        'truncates lineTotal and lineCost independently at remainder boundaries',
+        () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 7,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 3,
+        ),
+        quantity: Quantity.fromMilliUnits(150),
+      );
+      expect(line.lineTotal.minorUnits, 1);
+      expect(line.lineCost!.minorUnits, 0);
+      expect(line.grossProfit!.minorUnits, 1);
+      expect(
+        line.grossProfit!.minorUnits,
+        line.lineTotal.minorUnits - line.lineCost!.minorUnits,
+      );
+    });
+
     test('supports losses when cost exceeds selling price', () {
       final line = costed(
         selling: const Money(

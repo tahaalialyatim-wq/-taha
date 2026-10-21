@@ -520,6 +520,76 @@ void main() {
     expect(sale.lines.single.grossProfit!.minorUnits, 80);
   });
 
+  test('inventory update rejects negative prices and accepts zero or omitted',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final inventory = SqliteInventoryRepository(service);
+    final inventoryService = MerchantInventoryService(inventory);
+    final merchant = MerchantId('m1');
+    await inventoryService.addProduct(
+      merchant,
+      ProductId('p1'),
+      quantity: Quantity.whole(1),
+    );
+    final existing = (await inventoryService.findByProduct(
+      merchant,
+      ProductId('p1'),
+    ))!;
+
+    expect(
+      () => inventory.update(
+        existing.copyWith(
+          sellingPrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: -1,
+          ),
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    expect(
+      () => inventory.update(
+        existing.copyWith(
+          purchasePrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: -5,
+          ),
+        ),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+    final stored = await inventoryService.findByProduct(
+      merchant,
+      ProductId('p1'),
+    );
+    expect(stored!.sellingPrice, isNull);
+    expect(stored.purchasePrice, isNull);
+
+    final zeroSelling = await inventory.update(
+      existing.copyWith(
+        sellingPrice: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 0,
+        ),
+      ),
+    );
+    expect(zeroSelling.sellingPrice!.minorUnits, 0);
+    expect(zeroSelling.purchasePrice, isNull);
+
+    final omitted = await inventory.update(
+      MerchantInventoryItem(
+        id: existing.id,
+        merchantId: existing.merchantId,
+        productId: existing.productId,
+        quantity: existing.quantity,
+      ),
+    );
+    expect(omitted.sellingPrice, isNull);
+    expect(omitted.purchasePrice, isNull);
+  });
+
   test('failed cash sale rolls back stock and sale together', () async {
     final service = DatabaseService(databasePath: path);
     await service.initialize();

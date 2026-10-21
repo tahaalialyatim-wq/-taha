@@ -74,6 +74,7 @@ WHERE merchant_id = ? AND product_id = ?;
 
   @override
   Future<MerchantInventoryItem> update(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     final existing = await _requireOwned(item.merchantId, item.id);
     if (existing.productId != item.productId) {
       final clash = await getByProduct(item.merchantId, item.productId);

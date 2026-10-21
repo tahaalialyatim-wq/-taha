@@ -135,6 +135,8 @@ void main() {
     expect(textFor(tester, 'margin-USD'), '—');
 
     expect(textFor(tester, 'invoice-count'), '2');
+    expect(find.text('ملخص المبيعات'), findsOneWidget);
+    expect(find.text('موجز اليوم'), findsNothing);
     expect(find.textContaining('ر.س'), findsNothing);
     expect(find.text('450 SAR'), findsNothing);
     expect(find.text('450 YER'), findsNothing);
