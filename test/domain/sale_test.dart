@@ -92,6 +92,198 @@ void main() {
     });
   });
 
+  group('SaleLine historical cost', () {
+    SaleLine costed({
+      required Money selling,
+      required Money? cost,
+      Quantity? quantity,
+    }) =>
+        SaleLine(
+          productId: ProductId('p1'),
+          quantity: quantity ?? Quantity.whole(1),
+          unitSellingPrice: selling,
+          unitPurchaseCost: cost,
+        );
+
+    test('derives integer cost and gross profit without conversion', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 250,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 100,
+        ),
+        quantity: Quantity.whole(3),
+      );
+      expect(
+        line.lineCost,
+        const Money(currency: CurrencyCode.yemeniRial, minorUnits: 300),
+      );
+      expect(
+        line.grossProfit,
+        const Money(currency: CurrencyCode.yemeniRial, minorUnits: 450),
+      );
+    });
+
+    test('applies quantity scale consistently for fractional quantities', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 200,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 100,
+        ),
+        quantity: Quantity.fromMilliUnits(1500),
+      );
+      expect(line.lineTotal.minorUnits, 300);
+      expect(line.lineCost!.minorUnits, 150);
+      expect(line.grossProfit!.minorUnits, 150);
+    });
+
+    test(
+        'truncates lineTotal and lineCost independently at remainder boundaries',
+        () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 7,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 3,
+        ),
+        quantity: Quantity.fromMilliUnits(150),
+      );
+      expect(line.lineTotal.minorUnits, 1);
+      expect(line.lineCost!.minorUnits, 0);
+      expect(line.grossProfit!.minorUnits, 1);
+      expect(
+        line.grossProfit!.minorUnits,
+        line.lineTotal.minorUnits - line.lineCost!.minorUnits,
+      );
+    });
+
+    test('supports losses when cost exceeds selling price', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 100,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 250,
+        ),
+      );
+      expect(line.grossProfit!.minorUnits, -150);
+    });
+
+    test('missing cost yields unknown cost and profit, never zero', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 100,
+        ),
+        cost: null,
+      );
+      expect(line.lineCost, isNull);
+      expect(line.grossProfit, isNull);
+    });
+
+    test('zero selling price yields a loss and an unavailable margin', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 0,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 40,
+        ),
+      );
+      expect(line.lineTotal.minorUnits, 0);
+      expect(line.grossProfit!.minorUnits, -40);
+      final margin = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: line.lineTotal.minorUnits,
+        grossProfitMinorUnits: line.grossProfit!.minorUnits,
+      );
+      expect(margin.isAvailable, isFalse);
+      expect(margin.label, '—');
+    });
+
+    test('foreign cost currency yields unknown profit without conversion', () {
+      final line = costed(
+        selling: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 100,
+        ),
+        cost: const Money(
+          currency: CurrencyCode.saudiRiyal,
+          minorUnits: 100,
+        ),
+      );
+      expect(line.lineCost, isNull);
+      expect(line.grossProfit, isNull);
+    });
+  });
+
+  group('GrossProfitMargin', () {
+    test('computes one decimal percent from integer totals', () {
+      final margin = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 300,
+        grossProfitMinorUnits: 100,
+      );
+      expect(margin.isAvailable, isTrue);
+      expect(margin.label, '33.3%');
+    });
+
+    test('reports losses with a negative sign', () {
+      final margin = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 1000,
+        grossProfitMinorUnits: -50,
+      );
+      expect(margin.label, '-5.0%');
+    });
+
+    test('rounds to the nearest tenth away from zero', () {
+      final margin = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 3,
+        grossProfitMinorUnits: 1,
+      );
+      expect(margin.label, '33.3%');
+      final smallLoss = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 2000,
+        grossProfitMinorUnits: -1,
+      );
+      expect(smallLoss.label, '-0.1%');
+    });
+
+    test('is unavailable for zero or negative revenue', () {
+      final zero = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 0,
+        grossProfitMinorUnits: 0,
+      );
+      expect(zero.isAvailable, isFalse);
+      expect(zero.label, '—');
+      final negative = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: -10,
+        grossProfitMinorUnits: 5,
+      );
+      expect(negative.isAvailable, isFalse);
+    });
+
+    test('zero profit over positive revenue is a real 0.0 percent', () {
+      final margin = GrossProfitMargin.fromMinorUnits(
+        revenueMinorUnits: 500,
+        grossProfitMinorUnits: 0,
+      );
+      expect(margin.label, '0.0%');
+    });
+  });
+
   group('Sale', () {
     test('rejects empty lines', () {
       expect(

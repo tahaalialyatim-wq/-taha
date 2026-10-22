@@ -75,6 +75,7 @@ class InMemoryMerchantInventoryRepository
 
   @override
   Future<MerchantInventoryItem> update(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     final existing = _byId[item.id.value];
     if (existing == null) {
       throw InventoryItemNotFoundException(

@@ -285,6 +285,15 @@ void main() {
         isA<Exception>(),
       );
       expect(
+        awtad.DuplicateCustomerPhoneException(
+          merchantId: awtad.MerchantId('m'),
+          customerId: awtad.CustomerId('c'),
+          existingCustomerId: awtad.CustomerId('c2'),
+          phone: '777',
+        ),
+        isA<Exception>(),
+      );
+      expect(
         awtad.CustomerNotFoundException(
           merchantId: awtad.MerchantId('m'),
           customerId: awtad.CustomerId('c'),
@@ -629,6 +638,15 @@ void main() {
           customerId: awtad.CustomerId('c'),
         ),
         isA<awtad.DuplicateCustomerException>(),
+      );
+      expect(
+        application.DuplicateCustomerPhoneException(
+          merchantId: awtad.MerchantId('m'),
+          customerId: awtad.CustomerId('c'),
+          existingCustomerId: awtad.CustomerId('c2'),
+          phone: '777',
+        ),
+        isA<awtad.DuplicateCustomerPhoneException>(),
       );
       expect(
         application.CustomerNotFoundException(
