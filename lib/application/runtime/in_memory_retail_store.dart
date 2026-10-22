@@ -619,6 +619,10 @@ class _StoreCustomerView implements CustomerRepository {
           customerId: customer.id,
         );
       }
+      CustomerRepository.requireUniquePhone(
+        customer,
+        current.customersByKey.values,
+      );
       final customersByKey = Map<String, Customer>.from(current.customersByKey);
       final customerOrder = List<String>.from(current.customerOrder);
       customersByKey[key] = customer;
@@ -663,6 +667,10 @@ class _StoreCustomerView implements CustomerRepository {
         current,
         customer.merchantId,
         customer.id,
+      );
+      CustomerRepository.requireUniquePhone(
+        customer,
+        current.customersByKey.values,
       );
       final key =
           InMemoryRetailStore._customerKey(existing.merchantId, existing.id);

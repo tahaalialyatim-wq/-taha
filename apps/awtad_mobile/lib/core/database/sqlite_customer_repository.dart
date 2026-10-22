@@ -11,25 +11,28 @@ class SqliteCustomerRepository implements CustomerRepository {
 
   @override
   Future<void> add(Customer customer) async {
-    if (await exists(customer.merchantId, customer.id)) {
-      throw DuplicateCustomerException(
-        merchantId: customer.merchantId,
-        customerId: customer.id,
-      );
-    }
-    _db.execute(
-      '''
+    _runInWriteTransaction(() {
+      if (_existsSync(customer.merchantId, customer.id)) {
+        throw DuplicateCustomerException(
+          merchantId: customer.merchantId,
+          customerId: customer.id,
+        );
+      }
+      CustomerRepository.requireUniquePhone(customer, _allSync());
+      _db.execute(
+        '''
 INSERT INTO customers (merchant_id, customer_id, name, phone, notes)
 VALUES (?, ?, ?, ?, ?);
 ''',
-      [
-        customer.merchantId.value,
-        customer.id.value,
-        customer.name,
-        customer.phone,
-        customer.notes,
-      ],
-    );
+        [
+          customer.merchantId.value,
+          customer.id.value,
+          customer.name,
+          customer.phone,
+          customer.notes,
+        ],
+      );
+    });
   }
 
   @override
@@ -60,20 +63,36 @@ VALUES (?, ?, ?, ?, ?);
 
   @override
   Future<void> update(Customer customer) async {
-    await _requireOwned(customer.merchantId, customer.id);
-    _db.execute(
-      '''
+    _runInWriteTransaction(() {
+      _requireOwnedSync(customer.merchantId, customer.id);
+      CustomerRepository.requireUniquePhone(customer, _allSync());
+      _db.execute(
+        '''
 UPDATE customers SET name = ?, phone = ?, notes = ?
 WHERE merchant_id = ? AND customer_id = ?;
 ''',
-      [
-        customer.name,
-        customer.phone,
-        customer.notes,
-        customer.merchantId.value,
-        customer.id.value,
-      ],
-    );
+        [
+          customer.name,
+          customer.phone,
+          customer.notes,
+          customer.merchantId.value,
+          customer.id.value,
+        ],
+      );
+    });
+  }
+
+  void _runInWriteTransaction(void Function() body) {
+    _db.execute('BEGIN IMMEDIATE;');
+    try {
+      body();
+      _db.execute('COMMIT;');
+    } catch (error, stackTrace) {
+      try {
+        _db.execute('ROLLBACK;');
+      } catch (_) {}
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   @override
@@ -87,6 +106,10 @@ WHERE merchant_id = ? AND customer_id = ?;
 
   @override
   Future<bool> exists(MerchantId merchantId, CustomerId customerId) async {
+    return _existsSync(merchantId, customerId);
+  }
+
+  bool _existsSync(MerchantId merchantId, CustomerId customerId) {
     final rows = _db.select(
       '''
 SELECT 1 FROM customers WHERE merchant_id = ? AND customer_id = ? LIMIT 1;
@@ -96,13 +119,25 @@ SELECT 1 FROM customers WHERE merchant_id = ? AND customer_id = ? LIMIT 1;
     return rows.isNotEmpty;
   }
 
+  List<Customer> _allSync() {
+    final rows = _db.select('SELECT * FROM customers;');
+    return rows.map(_fromRow).toList(growable: false);
+  }
+
   Future<Customer> _requireOwned(
     MerchantId merchantId,
     CustomerId customerId,
   ) async {
-    final owned = await getById(merchantId, customerId);
-    if (owned != null) {
-      return owned;
+    return _requireOwnedSync(merchantId, customerId);
+  }
+
+  Customer _requireOwnedSync(MerchantId merchantId, CustomerId customerId) {
+    final owned = _db.select(
+      'SELECT * FROM customers WHERE merchant_id = ? AND customer_id = ?;',
+      [merchantId.value, customerId.value],
+    );
+    if (owned.isNotEmpty) {
+      return _fromRow(owned.first);
     }
     final any = _db.select(
       'SELECT merchant_id FROM customers WHERE customer_id = ? LIMIT 1;',

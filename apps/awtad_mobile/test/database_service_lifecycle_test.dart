@@ -867,4 +867,202 @@ void main() {
       -400,
     );
   });
+
+  test('sqlite customer add rejects a duplicate id and writes nothing',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final customers = SqliteCustomerRepository(service);
+    final merchant = MerchantId('m1');
+    await customers.add(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: merchant,
+        name: 'Ali',
+        phone: '777',
+      ),
+    );
+    expect(
+      () => customers.add(
+        Customer(
+          id: CustomerId('c1'),
+          merchantId: merchant,
+          name: 'Sara',
+          phone: '888',
+        ),
+      ),
+      throwsA(isA<DuplicateCustomerException>()),
+    );
+    expect(await customers.getAll(merchant), hasLength(1));
+    expect(
+      (await customers.getById(merchant, CustomerId('c1')))!.name,
+      'Ali',
+    );
+    await customers.add(
+      Customer(
+        id: CustomerId('c2'),
+        merchantId: merchant,
+        name: 'Sara',
+        phone: '888',
+      ),
+    );
+    expect(await customers.getAll(merchant), hasLength(2));
+  });
+
+  test('sqlite customer add rejects a duplicate phone and writes nothing',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final customers = SqliteCustomerRepository(service);
+    final merchant = MerchantId('m1');
+    await customers.add(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: merchant,
+        name: 'Ali',
+        phone: '777',
+      ),
+    );
+    expect(
+      () => customers.add(
+        Customer(
+          id: CustomerId('c2'),
+          merchantId: merchant,
+          name: 'Sara',
+          phone: '777',
+        ),
+      ),
+      throwsA(isA<DuplicateCustomerPhoneException>()),
+    );
+    expect(await customers.getAll(merchant), hasLength(1));
+    expect(
+      (await customers.getById(merchant, CustomerId('c1')))!.phone,
+      '777',
+    );
+    await customers.add(
+      Customer(
+        id: CustomerId('c2'),
+        merchantId: merchant,
+        name: 'Sara',
+        phone: '888',
+      ),
+    );
+    expect(await customers.getAll(merchant), hasLength(2));
+  });
+
+  test('sqlite customer update rejects a duplicate phone and leaves rows',
+      () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final customers = SqliteCustomerRepository(service);
+    final merchant = MerchantId('m1');
+    await customers.add(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: merchant,
+        name: 'Ali',
+        phone: '777',
+      ),
+    );
+    await customers.add(
+      Customer(
+        id: CustomerId('c2'),
+        merchantId: merchant,
+        name: 'Sara',
+        phone: '888',
+      ),
+    );
+    expect(
+      () => customers.update(
+        Customer(
+          id: CustomerId('c2'),
+          merchantId: merchant,
+          name: 'Sara',
+          phone: '777',
+        ),
+      ),
+      throwsA(isA<DuplicateCustomerPhoneException>()),
+    );
+    expect(
+      (await customers.getById(merchant, CustomerId('c2')))!.phone,
+      '888',
+    );
+    expect(
+      (await customers.getById(merchant, CustomerId('c1')))!.phone,
+      '777',
+    );
+    await customers.update(
+      Customer(
+        id: CustomerId('c2'),
+        merchantId: merchant,
+        name: 'Sara',
+        phone: '999',
+      ),
+    );
+    expect(
+      (await customers.getById(merchant, CustomerId('c2')))!.phone,
+      '999',
+    );
+  });
+
+  test('sqlite customers of different merchants may share a phone', () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final customers = SqliteCustomerRepository(service);
+    await customers.add(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: MerchantId('m1'),
+        name: 'Ali',
+        phone: '777',
+      ),
+    );
+    await customers.add(
+      Customer(
+        id: CustomerId('c2'),
+        merchantId: MerchantId('m2'),
+        name: 'Sara',
+        phone: '777',
+      ),
+    );
+    expect(
+      (await customers.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+      '777',
+    );
+    expect(
+      (await customers.getById(MerchantId('m2'), CustomerId('c2')))!.phone,
+      '777',
+    );
+  });
+
+  test('sqlite customer update may keep the same phone', () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final customers = SqliteCustomerRepository(service);
+    final merchant = MerchantId('m1');
+    await customers.add(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: merchant,
+        name: 'Ali',
+        phone: '777',
+      ),
+    );
+    await customers.update(
+      Customer(
+        id: CustomerId('c1'),
+        merchantId: merchant,
+        name: 'Sara',
+        phone: '777',
+      ),
+    );
+    final found = await customers.getById(merchant, CustomerId('c1'));
+    expect(found!.name, 'Sara');
+    expect(found.phone, '777');
+  });
 }

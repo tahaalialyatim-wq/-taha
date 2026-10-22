@@ -566,4 +566,87 @@ void main() {
       expect(omitted.purchasePrice, isNull);
     });
   });
+
+  group('InMemoryRetailStore.customers phone uniqueness', () {
+    test('rejects a duplicate phone on add without writing', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      expect(
+        () => store.customers.add(
+          Customer(
+            id: CustomerId('c2'),
+            merchantId: merchant,
+            name: 'Sara',
+            phone: '777',
+          ),
+        ),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(await store.customers.getAll(merchant), hasLength(1));
+    });
+
+    test('rejects a duplicate phone on update without changing rows', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      await addCustomer(id: CustomerId('c2'), name: 'Sara');
+      expect(
+        () => store.customers.update(
+          Customer(
+            id: CustomerId('c2'),
+            merchantId: merchant,
+            name: 'Sara',
+            phone: '777',
+          ),
+        ),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(
+        (await store.customers.getById(merchant, CustomerId('c2')))!.phone,
+        isNull,
+      );
+    });
+
+    test('allows the same phone for different merchants', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      await addCustomer(id: CustomerId('c2'), owner: other, name: 'Other');
+      await store.customers.update(
+        Customer(
+          id: CustomerId('c2'),
+          merchantId: other,
+          name: 'Other',
+          phone: '777',
+        ),
+      );
+      expect(
+        (await store.customers.getById(merchant, customerId))!.phone,
+        '777',
+      );
+      expect(
+        (await store.customers.getById(other, CustomerId('c2')))!.phone,
+        '777',
+      );
+    });
+  });
 }
