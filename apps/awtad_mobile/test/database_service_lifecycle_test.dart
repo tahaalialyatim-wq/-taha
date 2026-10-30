@@ -304,6 +304,61 @@ void main() {
     );
   });
 
+  test('store settings are isolated per merchant', () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final session = RetailSession(service);
+    final first = MerchantId('merchant-a');
+    final second = MerchantId('merchant-b');
+
+    await session.settings.saveDefaultCurrency(
+      first,
+      CurrencyCode.yemeniRial,
+    );
+    await session.settings.saveDefaultCurrency(
+      second,
+      CurrencyCode.usDollar,
+    );
+
+    expect(
+      await session.settings.readDefaultCurrency(first),
+      CurrencyCode.yemeniRial,
+    );
+    expect(
+      await session.settings.readDefaultCurrency(second),
+      CurrencyCode.usDollar,
+    );
+    expect(
+      await session.settings.readDefaultCurrency(RetailSession.defaultMerchant),
+      isNull,
+    );
+  });
+
+  test('invalid stored currency is not rewritten on read', () async {
+    final service = DatabaseService(databasePath: path);
+    await service.initialize();
+    addTearDown(service.close);
+    final merchant = RetailSession.defaultMerchant;
+    service.database.execute(
+      'INSERT INTO store_settings (merchant_id, default_currency) '
+      "VALUES (?, 'XXX');",
+      [merchant.value],
+    );
+    final session = RetailSession(service);
+
+    await expectLater(
+      session.settings.readDefaultCurrency(merchant),
+      throwsA(isA<ArgumentError>()),
+    );
+
+    final rows = service.database.select(
+      'SELECT default_currency FROM store_settings WHERE merchant_id = ?;',
+      [merchant.value],
+    );
+    expect(rows.single['default_currency'], 'XXX');
+  });
+
   test('unambiguous transaction currency is suggested but not persisted',
       () async {
     final service = DatabaseService(databasePath: path);

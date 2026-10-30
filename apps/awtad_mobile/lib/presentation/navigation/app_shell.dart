@@ -65,6 +65,7 @@ class _AppShellState extends State<AppShell> {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => SettingsScreen(
+                          session: widget.session,
                           seed: widget.seed,
                           dark: widget.dark,
                           onDarkChanged: widget.onDarkChanged,
