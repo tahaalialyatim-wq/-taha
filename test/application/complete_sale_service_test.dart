@@ -718,4 +718,74 @@ void main() {
       );
     });
   });
+
+  group('purchase cost snapshot', () {
+    const cost = Money(
+      currency: CurrencyCode.yemeniRial,
+      minorUnits: 60,
+    );
+
+    test('cash sales snapshot the inventory purchase cost', () async {
+      await stock(
+        p1,
+        quantity: Quantity.whole(5),
+        sellingPrice: yer100,
+        purchasePrice: cost,
+      );
+      final sale = await sales.complete(
+        command(
+          lines: <SaleCommandLine>[
+            SaleCommandLine(productId: p1, quantity: Quantity.whole(2)),
+          ],
+        ),
+      );
+      expect(sale.lines.single.unitPurchaseCost, cost);
+      expect(
+        sale.lines.single.grossProfit,
+        const Money(currency: CurrencyCode.yemeniRial, minorUnits: 80),
+      );
+    });
+
+    test('a later inventory cost change does not rewrite history', () async {
+      await stock(
+        p1,
+        quantity: Quantity.whole(5),
+        sellingPrice: yer100,
+        purchasePrice: cost,
+      );
+      await sales.complete(
+        command(
+          lines: <SaleCommandLine>[
+            SaleCommandLine(productId: p1, quantity: Quantity.whole(1)),
+          ],
+        ),
+      );
+      final item = (await inventory.findByProduct(merchant, p1))!;
+      await repository.update(
+        item.copyWith(
+          purchasePrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: 90,
+          ),
+        ),
+      );
+      final persisted =
+          await saleRepository.getById(merchant, SaleId('sale-1'));
+      expect(persisted!.lines.single.unitPurchaseCost, cost);
+      expect(persisted.lines.single.grossProfit!.minorUnits, 40);
+    });
+
+    test('missing purchase cost keeps profit unknown', () async {
+      await stock(p1, quantity: Quantity.whole(5), sellingPrice: yer100);
+      final sale = await sales.complete(
+        command(
+          lines: <SaleCommandLine>[
+            SaleCommandLine(productId: p1, quantity: Quantity.whole(1)),
+          ],
+        ),
+      );
+      expect(sale.lines.single.unitPurchaseCost, isNull);
+      expect(sale.lines.single.grossProfit, isNull);
+    });
+  });
 }

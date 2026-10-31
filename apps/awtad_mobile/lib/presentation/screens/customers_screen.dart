@@ -88,6 +88,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ListTile(
             title: Text(customer.name),
             subtitle: Text(customer.phone ?? 'بدون هاتف'),
+            trailing: const Icon(Icons.chevron_left),
             onTap: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(

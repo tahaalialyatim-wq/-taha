@@ -555,4 +555,51 @@ void main() {
       expect(await store.ledger.getEntries(merchant, customerId), isEmpty);
     });
   });
+
+  group('purchase cost snapshot', () {
+    test('credit sales snapshot the inventory purchase cost', () async {
+      const cost = Money(
+        currency: CurrencyCode.yemeniRial,
+        minorUnits: 60,
+      );
+      await addStock(
+        p1,
+        quantity: Quantity.whole(5),
+        sellingPrice: yer100,
+        purchasePrice: cost,
+      );
+      await addCustomer();
+      final sale = await creditSales.complete(
+        command(
+          lines: <SaleCommandLine>[
+            SaleCommandLine(productId: p1, quantity: Quantity.whole(2)),
+          ],
+        ),
+      );
+      expect(sale.lines.single.unitPurchaseCost, cost);
+      expect(
+        sale.lines.single.grossProfit,
+        const Money(currency: CurrencyCode.yemeniRial, minorUnits: 80),
+      );
+    });
+
+    test('foreign purchase-cost currency leaves profit unknown', () async {
+      await addStock(
+        p1,
+        quantity: Quantity.whole(5),
+        sellingPrice: yer100,
+        purchasePrice: sar100,
+      );
+      await addCustomer();
+      final sale = await creditSales.complete(
+        command(
+          lines: <SaleCommandLine>[
+            SaleCommandLine(productId: p1, quantity: Quantity.whole(1)),
+          ],
+        ),
+      );
+      expect(sale.lines.single.unitPurchaseCost, sar100);
+      expect(sale.lines.single.grossProfit, isNull);
+    });
+  });
 }

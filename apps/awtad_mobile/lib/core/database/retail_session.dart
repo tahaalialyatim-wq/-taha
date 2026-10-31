@@ -7,12 +7,14 @@ import 'sqlite_inventory_repository.dart';
 import 'sqlite_ledger_repository.dart';
 import 'sqlite_sale_repository.dart';
 import 'sqlite_sale_unit_of_work.dart';
+import 'sqlite_store_settings_repository.dart';
 
 class RetailSession {
   RetailSession(this.database)
       : inventory = SqliteInventoryRepository(database),
         sales = SqliteSaleRepository(database),
-        customers = SqliteCustomerRepository(database) {
+        customers = SqliteCustomerRepository(database),
+        settings = SqliteStoreSettingsRepository(database) {
     ledger = SqliteLedgerRepository(database, customers: customers);
     inventoryService = MerchantInventoryService(inventory);
     cashSales = CompleteSaleService(
@@ -32,6 +34,7 @@ class RetailSession {
   final MerchantInventoryRepository inventory;
   final SaleRepository sales;
   final CustomerRepository customers;
+  final SqliteStoreSettingsRepository settings;
   late final CustomerAccountLedgerRepository ledger;
   late final MerchantInventoryService inventoryService;
   late final CompleteSaleService cashSales;

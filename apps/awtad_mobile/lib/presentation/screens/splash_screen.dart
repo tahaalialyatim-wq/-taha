@@ -60,17 +60,17 @@ class PreparingDatabaseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 56,
                     backgroundColor: AppTheme.mintSurface,
                     child: Icon(
@@ -85,7 +85,7 @@ class PreparingDatabaseScreen extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 14,
                       backgroundColor: AppTheme.brandSoft,
-                      child: const Icon(
+                      child: Icon(
                         Icons.check,
                         size: 16,
                         color: Colors.white,
@@ -94,20 +94,20 @@ class PreparingDatabaseScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              const Text(
+              SizedBox(height: 24),
+              Text(
                 'جاري تهيئة قاعدة البيانات',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'جاري إعداد قاعدة البيانات المحلية للتأكد من جاهزيتها للاستخدام.',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-              const LinearProgressIndicator(color: AppTheme.brand),
-              const SizedBox(height: 12),
-              const Text('قد تستغرق هذه العملية بضع لحظات ...'),
+              SizedBox(height: 24),
+              LinearProgressIndicator(color: AppTheme.brand),
+              SizedBox(height: 12),
+              Text('قد تستغرق هذه العملية بضع لحظات ...'),
             ],
           ),
         ),
