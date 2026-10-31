@@ -12,9 +12,9 @@ This file is the single source of truth for recovered requirements, repository e
 | Created from | Branch `m1-customer-flow-verify`, original inspect HEAD `94405fbfddd054eeafc345791ffbf49f11ad87a9` |
 | Reconciled to | HEAD `bc3a90096ed3e16046799b5bd6b2a6a5040897d2` (`feat(settings): add default-currency selector`; parent `9c50c15`) |
 | Inspected on | 2026-10-25 |
-| Working tree | Tracking `origin/m1-customer-flow-verify` at `bc3a900`. This file lives under untracked `docs/` until explicitly committed. |
-| PR | [#1](https://github.com/tahaalialyatim-wq/-taha/pull/1) OPEN, MERGEABLE. Title/body still describe M1 only and are stale relative to M2/M7, reports, and settings commits on the branch. |
-| CI evidence | Latest on `bc3a900`: PR [41147675989](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41147675989). `flutter analyze` reported **No issues found!** (6.3s); `flutter test` **84 passed**. Earlier: `40214398790` / `40214383695` on `9c50c15` (75 passed); `40212555902` on `8d557db` (71 passed); `40208327314` on `94405fb` (68 passed). |
+| Working tree | As of this documentation update: branch `m1-customer-flow-verify` was at `da88249` and in sync with origin; this file was already tracked. This row is a snapshot, not a live tracking field. |
+| PR | [#1](https://github.com/tahaalialyatim-wq/-taha/pull/1) OPEN, MERGEABLE. |
+| CI evidence | Latest PR CI on `da88249`: [41220520126](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41220520126). `flutter analyze` step conclusion success; log **No issues found!** (9.5s). Historical: `flutter test` **84 passed** on `bc3a900` ([41147675989](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41147675989)). Earlier: `40214398790` / `40214383695` on `9c50c15` (75 passed); `40212555902` on `8d557db` (71 passed); `40208327314` on `94405fb` (68 passed). |
 | APK | `.github/workflows/android-apk.yml` builds on push to `main` only. Skipped on pull requests. Not authorized from this document. Local APK cannot be produced in this environment (`apps/awtad_mobile/README.md`). |
 
 ### How to read status
