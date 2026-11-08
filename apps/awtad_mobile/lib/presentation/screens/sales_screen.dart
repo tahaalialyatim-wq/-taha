@@ -293,6 +293,17 @@ class _SalesScreenState extends State<SalesScreen> {
               onChanged: (value) => setState(() => _creditCustomer = value),
             ),
           ),
+        if (_cart.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                'السلة فارغة. أضف منتجًا للبدء.',
+                key: Key('sales-empty-cart'),
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Align(

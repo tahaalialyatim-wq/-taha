@@ -2,6 +2,7 @@ import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';
+import '../utils/customer_ledger_error_message.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   const CustomerDetailScreen({
@@ -138,7 +139,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       setState(() => _openingMessage = 'تم تسجيل الرصيد الافتتاحي.');
       await _reload();
     } catch (error) {
-      setState(() => _openingMessage = error.toString());
+      setState(() => _openingMessage = customerLedgerErrorMessage(error));
     }
   }
 
@@ -169,7 +170,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       setState(() => _paymentMessage = 'تم تسجيل الدفعة.');
       await _reload();
     } catch (error) {
-      setState(() => _paymentMessage = error.toString());
+      setState(() => _paymentMessage = customerLedgerErrorMessage(error));
     }
   }
 

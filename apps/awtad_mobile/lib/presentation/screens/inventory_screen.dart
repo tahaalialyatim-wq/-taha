@@ -2,6 +2,7 @@ import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';
+import '../utils/inventory_save_error_message.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key, required this.session});
@@ -172,7 +173,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       }
       await _reload();
     } catch (error) {
-      setState(() => _message = error.toString());
+      setState(() => _message = inventorySaveErrorMessage(error));
     }
   }
 
@@ -238,8 +239,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onPressed: _cancelEdit,
             child: const Text('إلغاء'),
           ),
-        if (_message != null) Text(_message!),
+        if (_message != null)
+          Text(_message!, key: const Key('inventory-save-message')),
         const Divider(),
+        if (_items.isEmpty)
+          const Text(
+            'لا توجد منتجات في المخزون بعد.',
+            key: Key('inventory-empty-state'),
+          ),
         for (final item in _items)
           ListTile(
             title: Text(item.productId.value),

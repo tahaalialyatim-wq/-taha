@@ -151,12 +151,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Wrap(
             spacing: 12,
             children: [
-              for (final color in AppTheme.seeds)
+              for (var index = 0; index < AppTheme.seeds.length; index++)
                 GestureDetector(
-                  onTap: () => widget.onSeedChanged(color),
+                  onTap: () => widget.onSeedChanged(AppTheme.seeds[index]),
                   child: CircleAvatar(
-                    backgroundColor: color,
-                    child: widget.seed == color
+                    key: Key('theme-seed-$index'),
+                    backgroundColor: AppTheme.seeds[index],
+                    child: widget.seed == AppTheme.seeds[index]
                         ? const Icon(Icons.check, color: Colors.white)
                         : null,
                   ),

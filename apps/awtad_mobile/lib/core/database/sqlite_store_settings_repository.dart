@@ -3,11 +3,21 @@ import 'package:sqlite3/sqlite3.dart';
 
 import 'database_service.dart';
 
+/// Reads and writes the store-wide default currency for a merchant.
+abstract class StoreSettingsRepository {
+  Future<CurrencyCode?> readDefaultCurrency(MerchantId merchantId);
+
+  Future<void> saveDefaultCurrency(
+    MerchantId merchantId,
+    CurrencyCode currency,
+  );
+}
+
 /// Persists the store-wide default currency for a merchant.
 ///
 /// The default is a pre-fill value only: it never rewrites the currency stored
 /// on existing inventory items, sales, sale lines or ledger entries.
-class SqliteStoreSettingsRepository {
+class SqliteStoreSettingsRepository implements StoreSettingsRepository {
   SqliteStoreSettingsRepository(this._database);
 
   final DatabaseService _database;

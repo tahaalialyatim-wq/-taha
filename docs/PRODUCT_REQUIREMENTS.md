@@ -8,13 +8,15 @@ This file is the single source of truth for recovered requirements, repository e
 
 | Field | Value |
 | --- | --- |
-| Status | Recovered draft, reconciled with verified reports and settings default-currency UI. Documentation only. Not an implementation approval. |
+| Status | Recovered draft. Phase 0 hygiene re-applied on `recovery/m1-917d8c0` after prior working-tree Phase 0 changes were lost. Documentation only. Not an implementation approval. |
 | Created from | Branch `m1-customer-flow-verify`, original inspect HEAD `94405fbfddd054eeafc345791ffbf49f11ad87a9` |
-| Reconciled to | HEAD `bc3a90096ed3e16046799b5bd6b2a6a5040897d2` (`feat(settings): add default-currency selector`; parent `9c50c15`) |
-| Inspected on | 2026-10-25 |
-| Working tree | As of this documentation update: branch `m1-customer-flow-verify` was at `da88249` and in sync with origin; this file was already tracked. This row is a snapshot, not a live tracking field. |
-| PR | [#1](https://github.com/tahaalialyatim-wq/-taha/pull/1) OPEN, MERGEABLE. |
-| CI evidence | Latest PR CI on `da88249`: [41220520126](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41220520126). `flutter analyze` step conclusion success; log **No issues found!** (9.5s). Historical: `flutter test` **84 passed** on `bc3a900` ([41147675989](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41147675989)). Earlier: `40214398790` / `40214383695` on `9c50c15` (75 passed); `40212555902` on `8d557db` (71 passed); `40208327314` on `94405fb` (68 passed). |
+| Reference HEAD | `917d8c0778ed9b881f4f0bde22c32e3658b94fd9` (`docs(retail): correct requirements tracking and PR scope`) |
+| Branch | `m1-customer-flow-verify` (recovery working branch `recovery/m1-917d8c0`) |
+| Schema | v3: v1 operational tables + v2 `store_settings` + v3 nullable `sale_lines.unit_cost_*` snapshot columns |
+| Inspected on | 2026-11-06 |
+| Working tree | Recovery clone at `917d8c0` plus uncommitted Phase 0 re-application. Snapshot, not a live tracking field. |
+| PR | [#1](https://github.com/tahaalialyatim-wq/-taha/pull/1) OPEN. Scope covers schema v2 (`store_settings`) and v3 (`sale_lines.unit_cost_*`). Title/description update is deferred to explicit approval (not done in git). |
+| CI | `flutter analyze` is blocking (`continue-on-error` removed). Root `dart pub get` + `dart test` run because root `pubspec.yaml` exists. Historical: PR CI on `da88249` [41220520126](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41220520126); `flutter test` **84 passed** on `bc3a900` ([41147675989](https://github.com/tahaalialyatim-wq/-taha/actions/runs/41147675989)); `40214398790` / `40214383695` on `9c50c15` (75 passed); `40212555902` on `8d557db` (71 passed); `40208327314` on `94405fb` (68 passed). |
 | APK | `.github/workflows/android-apk.yml` builds on push to `main` only. Skipped on pull requests. Not authorized from this document. Local APK cannot be produced in this environment (`apps/awtad_mobile/README.md`). |
 
 ### How to read status
@@ -39,7 +41,7 @@ Do not treat exploratory ideas as approved commitments. Contacts picker and Andr
 | --- | --- |
 | `apps/awtad_mobile/README.md` | Mobile client layout, SQLite sales UoW, external APK instructions. Not a product roadmap. |
 | Repository root | This file is the product-scope source of truth. No other roadmap or milestone notes. |
-| `.github/workflows/m1-customer-tests.yml` | Analyze + test on `workflow_dispatch` and PRs to `main`. `flutter analyze` is `continue-on-error: true`. |
+| `.github/workflows/m1-customer-tests.yml` | Analyze + test on `workflow_dispatch` and PRs to `main`. `flutter analyze` is blocking. Root `dart pub get` + `dart test` run from repository root. |
 | `.github/workflows/android-apk.yml` | Release APK on push to `main`. |
 | Git history | Recovery baseline `98e439c`; Flutter client `ab22484`; M1, M2, and M7 commit subjects below. |
 
