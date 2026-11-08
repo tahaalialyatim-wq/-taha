@@ -11,6 +11,8 @@ abstract class StoreSettingsRepository {
     MerchantId merchantId,
     CurrencyCode currency,
   );
+
+  Future<CurrencyCode?> suggestDefaultCurrency(MerchantId merchantId);
 }
 
 /// Persists the store-wide default currency for a merchant.
@@ -25,6 +27,7 @@ class SqliteStoreSettingsRepository implements StoreSettingsRepository {
   Database get _db => _database.database;
 
   /// Returns the persisted default currency, or `null` when none is set.
+  @override
   Future<CurrencyCode?> readDefaultCurrency(MerchantId merchantId) async {
     final rows = _db.select(
       'SELECT default_currency FROM store_settings WHERE merchant_id = ?;',
@@ -41,6 +44,7 @@ class SqliteStoreSettingsRepository implements StoreSettingsRepository {
   }
 
   /// Saves [currency] as the merchant's default, replacing any previous value.
+  @override
   Future<void> saveDefaultCurrency(
     MerchantId merchantId,
     CurrencyCode currency,
@@ -61,6 +65,7 @@ ON CONFLICT (merchant_id) DO UPDATE SET default_currency = excluded.default_curr
   /// and ledger entries all share exactly one, otherwise `null`. This is a
   /// read-only suggestion: it is never persisted, and the caller must obtain
   /// explicit confirmation before saving it.
+  @override
   Future<CurrencyCode?> suggestDefaultCurrency(MerchantId merchantId) async {
     final rows = _db.select(
       '''

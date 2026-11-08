@@ -18,6 +18,11 @@ class MemoryStoreSettingsRepository implements StoreSettingsRepository {
   ) async {
     value = currency;
   }
+
+  @override
+  Future<CurrencyCode?> suggestDefaultCurrency(MerchantId merchantId) async {
+    return null;
+  }
 }
 
 class FakeCustomerRepository implements CustomerRepository {
