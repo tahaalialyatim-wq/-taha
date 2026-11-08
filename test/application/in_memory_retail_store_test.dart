@@ -498,4 +498,155 @@ void main() {
       );
     });
   });
+
+  group('InMemoryRetailStore.inventory.update', () {
+    test('rejects a negative selling price', () async {
+      await addStock(p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      expect(
+        () => store.inventory.update(
+          existing.copyWith(
+            sellingPrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -1,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await stock.findByProduct(merchant, p1))!.sellingPrice,
+        yer100,
+      );
+    });
+
+    test('rejects a negative purchase price', () async {
+      await addStock(p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      expect(
+        () => store.inventory.update(
+          existing.copyWith(
+            purchasePrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -5,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await stock.findByProduct(merchant, p1))!.purchasePrice,
+        isNull,
+      );
+    });
+
+    test('accepts zero and omitted prices', () async {
+      await stock.addProduct(merchant, p1, quantity: Quantity.whole(1));
+      final existing = (await stock.findByProduct(merchant, p1))!;
+      final zeroSelling = await store.inventory.update(
+        existing.copyWith(
+          sellingPrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: 0,
+          ),
+        ),
+      );
+      expect(zeroSelling.sellingPrice!.minorUnits, 0);
+      expect(zeroSelling.purchasePrice, isNull);
+
+      final omitted = await store.inventory.update(
+        MerchantInventoryItem(
+          id: existing.id,
+          merchantId: existing.merchantId,
+          productId: existing.productId,
+          quantity: existing.quantity,
+        ),
+      );
+      expect(omitted.sellingPrice, isNull);
+      expect(omitted.purchasePrice, isNull);
+    });
+  });
+
+  group('InMemoryRetailStore.customers phone uniqueness', () {
+    test('rejects a duplicate phone on add without writing', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      expect(
+        () => store.customers.add(
+          Customer(
+            id: CustomerId('c2'),
+            merchantId: merchant,
+            name: 'Sara',
+            phone: '777',
+          ),
+        ),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(await store.customers.getAll(merchant), hasLength(1));
+    });
+
+    test('rejects a duplicate phone on update without changing rows', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      await addCustomer(id: CustomerId('c2'), name: 'Sara');
+      expect(
+        () => store.customers.update(
+          Customer(
+            id: CustomerId('c2'),
+            merchantId: merchant,
+            name: 'Sara',
+            phone: '777',
+          ),
+        ),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(
+        (await store.customers.getById(merchant, CustomerId('c2')))!.phone,
+        isNull,
+      );
+    });
+
+    test('allows the same phone for different merchants', () async {
+      await addCustomer();
+      await store.customers.update(
+        Customer(
+          id: customerId,
+          merchantId: merchant,
+          name: 'Ali',
+          phone: '777',
+        ),
+      );
+      await addCustomer(id: CustomerId('c2'), owner: other, name: 'Other');
+      await store.customers.update(
+        Customer(
+          id: CustomerId('c2'),
+          merchantId: other,
+          name: 'Other',
+          phone: '777',
+        ),
+      );
+      expect(
+        (await store.customers.getById(merchant, customerId))!.phone,
+        '777',
+      );
+      expect(
+        (await store.customers.getById(other, CustomerId('c2')))!.phone,
+        '777',
+      );
+    });
+  });
 }

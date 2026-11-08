@@ -3,6 +3,7 @@ import '../../domain/catalog/quantity.dart';
 import '../../domain/inventory/inventory_item_id.dart';
 import '../../domain/inventory/merchant_inventory_item.dart';
 import '../../domain/merchant/merchant_id.dart';
+import '../../domain/money/money.dart';
 import 'inventory_decrement.dart';
 
 /// Merchant scoped, asynchronous inventory repository.
@@ -30,7 +31,27 @@ abstract class MerchantInventoryRepository {
   Future<MerchantInventoryItem> add(MerchantInventoryItem item);
 
   /// Replaces [item]. Throws when missing or owned by another merchant.
+  ///
+  /// Implementations must reject negative selling or purchase prices with
+  /// [ArgumentError] before writing. Null and zero prices remain valid.
   Future<MerchantInventoryItem> update(MerchantInventoryItem item);
+
+  /// Throws [ArgumentError] when [item] carries a negative selling or purchase
+  /// price. Null and zero prices are accepted.
+  static void requireNonNegativePrices(MerchantInventoryItem item) {
+    _requireNonNegativePrice(item.sellingPrice, 'sellingPrice');
+    _requireNonNegativePrice(item.purchasePrice, 'purchasePrice');
+  }
+
+  static void _requireNonNegativePrice(Money? price, String name) {
+    if (price != null && price.minorUnits < 0) {
+      throw ArgumentError.value(
+        price.minorUnits,
+        name,
+        'Price must not be negative',
+      );
+    }
+  }
 
   /// Atomically updates the quantity of an item.
   Future<MerchantInventoryItem> updateQuantity(

@@ -2,6 +2,7 @@ import 'package:awtad_retail/awtad_retail.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/database/retail_session.dart';
+import '../utils/customer_create_error_message.dart';
 import 'customer_detail_screen.dart';
 
 class CustomersScreen extends StatefulWidget {
@@ -59,7 +60,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       setState(() => _message = 'تم إنشاء الحساب.');
       await _reload();
     } catch (error) {
-      setState(() => _message = error.toString());
+      setState(() => _message = customerCreateErrorMessage(error));
     }
   }
 
@@ -73,21 +74,30 @@ class _CustomersScreenState extends State<CustomersScreen> {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         TextField(
+          key: const Key('customer-name-field'),
           controller: _name,
           decoration: const InputDecoration(labelText: 'الاسم'),
         ),
         TextField(
+          key: const Key('customer-phone-field'),
           controller: _phone,
           decoration: const InputDecoration(labelText: 'الهاتف'),
         ),
         const SizedBox(height: 8),
         FilledButton(onPressed: _add, child: const Text('إنشاء حساب')),
-        if (_message != null) Text(_message!),
+        if (_message != null)
+          Text(_message!, key: const Key('customer-create-message')),
         const Divider(),
+        if (_customers.isEmpty)
+          const Text(
+            'لا يوجد عملاء بعد.',
+            key: Key('customer-empty-state'),
+          ),
         for (final customer in _customers)
           ListTile(
             title: Text(customer.name),
             subtitle: Text(customer.phone ?? 'بدون هاتف'),
+            trailing: const Icon(Icons.chevron_left),
             onTap: () async {
               await Navigator.of(context).push(
                 MaterialPageRoute<void>(

@@ -61,6 +61,7 @@ WHERE merchant_id = ? AND product_id = ?;
 
   @override
   Future<MerchantInventoryItem> add(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     final existing = await getByProduct(item.merchantId, item.productId);
     if (existing != null || await exists(item.merchantId, item.id)) {
       throw DuplicateInventoryItemException(
@@ -74,6 +75,7 @@ WHERE merchant_id = ? AND product_id = ?;
 
   @override
   Future<MerchantInventoryItem> update(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     final existing = await _requireOwned(item.merchantId, item.id);
     if (existing.productId != item.productId) {
       final clash = await getByProduct(item.merchantId, item.productId);

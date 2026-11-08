@@ -394,6 +394,7 @@ class _StoreInventoryView implements MerchantInventoryRepository {
 
   @override
   Future<MerchantInventoryItem> update(MerchantInventoryItem item) async {
+    MerchantInventoryRepository.requireNonNegativePrices(item);
     _store._publish((current) {
       final existing = current.inventoryById[item.id.value];
       if (existing == null) {
@@ -618,6 +619,10 @@ class _StoreCustomerView implements CustomerRepository {
           customerId: customer.id,
         );
       }
+      CustomerRepository.requireUniquePhone(
+        customer,
+        current.customersByKey.values,
+      );
       final customersByKey = Map<String, Customer>.from(current.customersByKey);
       final customerOrder = List<String>.from(current.customerOrder);
       customersByKey[key] = customer;
@@ -662,6 +667,10 @@ class _StoreCustomerView implements CustomerRepository {
         current,
         customer.merchantId,
         customer.id,
+      );
+      CustomerRepository.requireUniquePhone(
+        customer,
+        current.customersByKey.values,
       );
       final key =
           InMemoryRetailStore._customerKey(existing.merchantId, existing.id);

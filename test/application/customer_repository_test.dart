@@ -100,6 +100,98 @@ void main() {
       );
     });
 
+    test('duplicate phone for the same merchant is rejected on add', () async {
+      await repository.add(customer(id: 'c1', phone: '777'));
+      expect(
+        () => repository.add(customer(id: 'c2', name: 'Sara', phone: '777')),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(await repository.getAll(MerchantId('m1')), hasLength(1));
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+        '777',
+      );
+    });
+
+    test('duplicate phone for the same merchant is rejected on update',
+        () async {
+      await repository.add(customer(id: 'c1', phone: '777'));
+      await repository.add(customer(id: 'c2', name: 'Sara', phone: '888'));
+      expect(
+        () => repository.update(customer(id: 'c2', name: 'Sara', phone: '777')),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c2')))!.phone,
+        '888',
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+        '777',
+      );
+    });
+
+    test('update may keep the same customer phone', () async {
+      await repository.add(customer(phone: '777'));
+      await repository.update(customer(name: 'Sara', phone: '777'));
+      final found =
+          await repository.getById(MerchantId('m1'), CustomerId('c1'));
+      expect(found!.name, 'Sara');
+      expect(found.phone, '777');
+    });
+
+    test('different merchants may share the same phone', () async {
+      await repository.add(customer(merchant: 'm1', phone: '777'));
+      await repository.add(
+        customer(id: 'c2', merchant: 'm2', name: 'Other', phone: '777'),
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+        '777',
+      );
+      expect(
+        (await repository.getById(MerchantId('m2'), CustomerId('c2')))!.phone,
+        '777',
+      );
+    });
+
+    test('null and blank phones remain allowed for multiple customers',
+        () async {
+      await repository.add(customer(id: 'c1'));
+      await repository.add(customer(id: 'c2', name: 'Sara', phone: '   '));
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+        isNull,
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c2')))!.phone,
+        isNull,
+      );
+    });
+
+    test('phone comparison trims surroundings but preserves digits and zeros',
+        () async {
+      await repository.add(customer(id: 'c1', phone: '  0777 '));
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c1')))!.phone,
+        '0777',
+      );
+      expect(
+        () => repository.add(customer(id: 'c2', name: 'Sara', phone: '0777')),
+        throwsA(isA<DuplicateCustomerPhoneException>()),
+      );
+      await repository.add(customer(id: 'c3', name: 'Omar', phone: '777'));
+      await repository.add(customer(id: 'c4', name: 'Lina', phone: '+777'));
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c3')))!.phone,
+        '777',
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), CustomerId('c4')))!.phone,
+        '+777',
+      );
+    });
+
     test('the same CustomerId may exist for different merchants', () async {
       await repository.add(customer(merchant: 'm1'));
       await repository.add(customer(merchant: 'm2', name: 'Other'));

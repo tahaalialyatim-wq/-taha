@@ -7,21 +7,28 @@ import 'sqlite_inventory_repository.dart';
 import 'sqlite_ledger_repository.dart';
 import 'sqlite_sale_repository.dart';
 import 'sqlite_sale_unit_of_work.dart';
+import 'sqlite_store_settings_repository.dart';
 
 class RetailSession {
-  RetailSession(this.database)
-      : inventory = SqliteInventoryRepository(database),
-        sales = SqliteSaleRepository(database),
-        customers = SqliteCustomerRepository(database) {
-    ledger = SqliteLedgerRepository(database, customers: customers);
-    inventoryService = MerchantInventoryService(inventory);
+  RetailSession(
+    this.database, {
+    MerchantInventoryRepository? inventory,
+    SaleRepository? sales,
+    CustomerRepository? customers,
+    StoreSettingsRepository? settings,
+  })  : inventory = inventory ?? SqliteInventoryRepository(database),
+        sales = sales ?? SqliteSaleRepository(database),
+        customers = customers ?? SqliteCustomerRepository(database),
+        settings = settings ?? SqliteStoreSettingsRepository(database) {
+    ledger = SqliteLedgerRepository(database, customers: this.customers);
+    inventoryService = MerchantInventoryService(this.inventory);
     cashSales = CompleteSaleService(
-      inventory: inventory,
+      inventory: this.inventory,
       unitOfWork: SqliteCompleteSaleUnitOfWork(database),
     );
     creditSales = CreditSaleService(
-      inventory: inventory,
-      customers: customers,
+      inventory: this.inventory,
+      customers: this.customers,
       unitOfWork: SqliteCreditSaleUnitOfWork(database),
     );
     openingBalances = RecordOpeningBalanceService(ledger: ledger);
@@ -32,6 +39,7 @@ class RetailSession {
   final MerchantInventoryRepository inventory;
   final SaleRepository sales;
   final CustomerRepository customers;
+  final StoreSettingsRepository settings;
   late final CustomerAccountLedgerRepository ledger;
   late final MerchantInventoryService inventoryService;
   late final CompleteSaleService cashSales;

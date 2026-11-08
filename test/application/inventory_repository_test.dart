@@ -107,6 +107,64 @@ void main() {
       );
     });
 
+    test('update rejects a negative selling price', () async {
+      await repository.add(item('m1', 'p1'));
+      expect(
+        () => repository.update(
+          item('m1', 'p1').copyWith(
+            sellingPrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -1,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), InventoryItemId('m1:p1')))!
+            .sellingPrice,
+        isNull,
+      );
+    });
+
+    test('update rejects a negative purchase price', () async {
+      await repository.add(item('m1', 'p1'));
+      expect(
+        () => repository.update(
+          item('m1', 'p1').copyWith(
+            purchasePrice: const Money(
+              currency: CurrencyCode.yemeniRial,
+              minorUnits: -5,
+            ),
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        (await repository.getById(MerchantId('m1'), InventoryItemId('m1:p1')))!
+            .purchasePrice,
+        isNull,
+      );
+    });
+
+    test('update accepts zero and omitted prices', () async {
+      await repository.add(item('m1', 'p1'));
+      final zeroSelling = await repository.update(
+        item('m1', 'p1').copyWith(
+          sellingPrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: 0,
+          ),
+        ),
+      );
+      expect(zeroSelling.sellingPrice!.minorUnits, 0);
+      expect(zeroSelling.purchasePrice, isNull);
+
+      final omitted = await repository.update(item('m1', 'p1'));
+      expect(omitted.sellingPrice, isNull);
+      expect(omitted.purchasePrice, isNull);
+    });
+
     test('updateQuantity is atomic at the repository boundary', () async {
       await repository.add(item('m1', 'p1'));
       final updated = await repository.updateQuantity(

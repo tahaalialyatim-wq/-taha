@@ -187,5 +187,53 @@ void main() {
           await service.decrementQuantity(merchant, product, Quantity.whole(2));
       expect(remaining.quantity, Quantity.whole(5));
     });
+
+    test('addProduct rejects a negative selling price', () async {
+      expect(
+        () => service.addProduct(
+          merchant,
+          product,
+          sellingPrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: -1,
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await service.findByProduct(merchant, product), isNull);
+    });
+
+    test('addProduct rejects a negative purchase price', () async {
+      expect(
+        () => service.addProduct(
+          merchant,
+          product,
+          purchasePrice: const Money(
+            currency: CurrencyCode.yemeniRial,
+            minorUnits: -5,
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(await service.findByProduct(merchant, product), isNull);
+    });
+
+    test('addProduct accepts zero and omitted prices', () async {
+      final created = await service.addProduct(
+        merchant,
+        product,
+        sellingPrice: const Money(
+          currency: CurrencyCode.yemeniRial,
+          minorUnits: 0,
+        ),
+      );
+      expect(created.sellingPrice!.minorUnits, 0);
+      expect(created.purchasePrice, isNull);
+
+      final other = ProductId('p2');
+      final withoutPrices = await service.addProduct(merchant, other);
+      expect(withoutPrices.sellingPrice, isNull);
+      expect(withoutPrices.purchasePrice, isNull);
+    });
   });
 }

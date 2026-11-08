@@ -22,6 +22,7 @@ class InMemoryCustomerRepository implements CustomerRepository {
         customerId: customer.id,
       );
     }
+    CustomerRepository.requireUniquePhone(customer, _byKey.values);
     _byKey[key] = customer;
     _order.add(key);
   }
@@ -49,6 +50,7 @@ class InMemoryCustomerRepository implements CustomerRepository {
   @override
   Future<void> update(Customer customer) async {
     final existing = _requireOwned(customer.merchantId, customer.id);
+    CustomerRepository.requireUniquePhone(customer, _byKey.values);
     final key = _key(existing.merchantId, existing.id);
     _byKey[key] = customer;
   }

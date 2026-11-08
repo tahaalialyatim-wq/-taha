@@ -53,6 +53,8 @@ class MerchantInventoryService {
         productId: productId,
       );
     }
+    _requireNonNegativePrice(sellingPrice, 'sellingPrice');
+    _requireNonNegativePrice(purchasePrice, 'purchasePrice');
     final item = MerchantInventoryItem(
       id: idFor(merchantId, productId),
       merchantId: merchantId,
@@ -108,6 +110,16 @@ class MerchantInventoryService {
       return false;
     }
     return repository.remove(merchantId, item.id);
+  }
+
+  static void _requireNonNegativePrice(Money? price, String name) {
+    if (price != null && price.minorUnits < 0) {
+      throw ArgumentError.value(
+        price.minorUnits,
+        name,
+        'Price must not be negative',
+      );
+    }
   }
 
   Future<MerchantInventoryItem> _requireItem(

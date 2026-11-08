@@ -62,8 +62,9 @@ VALUES (?, ?, ?, ?);
         '''
 INSERT INTO sale_lines (
   merchant_id, sale_id, line_index, product_id,
-  quantity_milli, unit_currency, unit_minor
-) VALUES (?, ?, ?, ?, ?, ?, ?);
+  quantity_milli, unit_currency, unit_minor,
+  unit_cost_currency, unit_cost_minor
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 ''',
         [
           sale.merchantId.value,
@@ -73,9 +74,26 @@ INSERT INTO sale_lines (
           line.quantity.milliUnits,
           line.unitSellingPrice.currency.value,
           line.unitSellingPrice.minorUnits,
+          line.unitPurchaseCost?.currency.value,
+          line.unitPurchaseCost?.minorUnits,
         ],
       );
     }
+  }
+
+  /// Reads a persisted historical cost snapshot.
+  ///
+  /// Legacy rows have `NULL` cost columns and therefore load as unknown.
+  static Money? _costFrom(Row row) {
+    final currency = row['unit_cost_currency'] as String?;
+    final minorUnits = row['unit_cost_minor'] as int?;
+    if (currency == null || minorUnits == null) {
+      return null;
+    }
+    return Money(
+      currency: CurrencyCode.parse(currency),
+      minorUnits: minorUnits,
+    );
   }
 
   Sale _saleFrom(Row row) {
@@ -104,6 +122,7 @@ ORDER BY line_index;
                 currency: CurrencyCode.parse(line['unit_currency'] as String),
                 minorUnits: line['unit_minor'] as int,
               ),
+              unitPurchaseCost: _costFrom(line),
             ),
           )
           .toList(growable: false),
